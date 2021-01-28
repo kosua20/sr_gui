@@ -1,4 +1,3 @@
-
 #if defined(__OBJC__)
 
 #include "sr_gui.h"
@@ -6,7 +5,6 @@
 
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
-
 
 void sr_gui_show_message(const char* title, const char* message, int level){
 	NSAlert* alert = [[NSAlert alloc] init];
@@ -39,16 +37,106 @@ void sr_gui_show_notification(const char* title, const char* message){
 	[notif release];
 }
 
-int sr_gui_ask_directory(const char* title, const char* startPathr, char** outPath){
+int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath){
+	*outPath = NULL;
 
+	NSOpenPanel* panel = [NSOpenPanel openPanel];
+	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setAllowsMultipleSelection:NO];
+	[panel setCanChooseFiles:NO];
+	[panel setCanChooseDirectories:YES];
+	[panel setCanCreateDirectories:YES];
+	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+
+	NSModalResponse res = [panel runModal];
+	if(res != NSModalResponseOK){
+		[panel release];
+		return SR_GUI_CANCELLED;
+	}
+
+	const char* resStr = [[[panel URL] path] UTF8String];
+	const int strSize = strlen(resStr);
+
+	*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize+1));
+	memcpy(*outPath, resStr, strSize);
+	(*outPath)[strSize] = '\0';
+
+	[panel release];
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outpath){
+int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount){
+	*outCount = 0;
+	*outPaths = NULL;
+
+	NSOpenPanel* panel = [NSOpenPanel openPanel];
+	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setAllowsMultipleSelection:YES];
+	[panel setCanChooseFiles:YES];
+	[panel setCanChooseDirectories:NO];
+	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+
+	if(exts != NULL && strlen(exts) > 0){
+		NSString* extsStr = [NSString stringWithUTF8String:exts];
+		NSArray* allowedExts = [extsStr componentsSeparatedByString:@","];
+		[panel setAllowedFileTypes:allowedExts];
+		[panel setAllowsOtherFileTypes:NO];
+	}
+
+	NSModalResponse res = [panel runModal];
+	if(res != NSModalResponseOK){
+		[panel release];
+		return SR_GUI_CANCELLED;
+	}
+
+	NSArray* urls = [panel URLs];
+	*outCount = [urls count];
+	if(*outCount > 0){
+		*outPaths = (char**)SR_GUI_MALLOC(sizeof(char*) * (*outCount));
+		for(int i = 0; i < *outCount; ++i){
+			const char* resStr = [[[urls objectAtIndex:i] path] UTF8String];
+			const int strSize = strlen(resStr);
+			(*outPaths)[i] = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize+1));
+			memcpy((*outPaths)[i], resStr, strSize);
+			(*outPaths)[i][strSize] = '\0';
+		}
+	}
+
+	[panel release];
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outpath){
+int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath){
+	*outPath = NULL;
+
+	NSSavePanel* panel = [NSSavePanel savePanel];
+	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setExtensionHidden:NO];
+	[panel setCanCreateDirectories:YES];
+	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+
+	if(exts != NULL && strlen(exts) > 0){
+		NSString* extsStr = [NSString stringWithUTF8String:exts];
+		NSArray* allowedExts = [extsStr componentsSeparatedByString:@","];
+		[panel setAllowedFileTypes:allowedExts];
+		[panel setAllowsOtherFileTypes:NO];
+	}
+
+	NSModalResponse res = [panel runModal];
+
+	if(res != NSModalResponseOK){
+		[panel release];
+		return SR_GUI_CANCELLED;
+	}
+
+	const char* resStr = [[[panel URL] path] UTF8String];
+	const int strSize = strlen(resStr);
+
+	*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize+1));
+	memcpy(*outPath, resStr, strSize);
+	(*outPath)[strSize] = '\0';
+
+	[panel release];
 	return SR_GUI_VALIDATED;
 }
 
@@ -107,6 +195,7 @@ int sr_gui_ask_string(const char* title, const char* message, char** result){
 
 	if(rep != SR_GUI_BUTTON0){
 		[alert release];
+		[field release];
 		return SR_GUI_CANCELLED;
 	}
 	// We don't own the UTF8 string, copy it.
@@ -156,6 +245,7 @@ int sr_gui_ask_color(unsigned char color[4], int askAlpha){
 	CGFloat red = ((CGFloat)color[0])/255.0f;
 	CGFloat gre = ((CGFloat)color[1])/255.0f;
 	CGFloat blu = ((CGFloat)color[2])/255.0f;
+
 	CGFloat alp = 1.0f;
 	if(askAlpha == SR_GUI_ASK_ALPHA){
 		alp = ((CGFloat)color[3])/255.0f;;
@@ -166,6 +256,8 @@ int sr_gui_ask_color(unsigned char color[4], int askAlpha){
 	SRColorPanel* panel = [[SRColorPanel alloc] initWithColor: inputCol shouldAskAlpha: (askAlpha == SR_GUI_ASK_ALPHA)];
 	int res = [panel run];
 	if(res != SR_GUI_VALIDATED){
+		[panel release];
+		[inputCol release];
 		return res;
 	}
 
@@ -178,6 +270,8 @@ int sr_gui_ask_color(unsigned char color[4], int askAlpha){
 		color[3] = (unsigned char)(fmax(fmin((float)alp * 255.0f, 255.0f), 0.0f));
 	}
 
+	[panel release];
+	[inputCol release];
 	return SR_GUI_VALIDATED;
 }
 
