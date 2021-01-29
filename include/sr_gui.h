@@ -22,7 +22,7 @@ void sr_gui_show_message(const char* title, const char* message, int level);
 
 void sr_gui_show_notification(const char* title, const char* message);
 
-int sr_gui_ask_directory(const char* title, const char* startPathr, char** outPath);
+int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath);
 
 int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount);
 
@@ -31,7 +31,6 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 int sr_gui_ask_choice(const char* title, const char* message, int level, const char* button0, const char* button1, const char* button2);
 
 int sr_gui_ask_string(const char* title, const char* message, char** result);
-
 
 int sr_gui_ask_color(unsigned char color[4], int askAlpha);
 	
