@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <wchar.h>
 #include <windows.h>
+#include <shobjidl.h>
 
 // Transfer output ownership to the caller.
 wchar_t* _sr_gui_widen_string(const char* str) {
@@ -41,24 +42,302 @@ void sr_gui_show_message(const char* title, const char* message, int level) {
 	int res = MessageBox(NULL, messageW, titleW, flags);
 	(void) res;
 
-	free(titleW);
-	free(messageW);
+	SR_GUI_FREE(titleW);
+	SR_GUI_FREE(messageW);
 }
 
 void sr_gui_show_notification(const char* title, const char* message) {
 	
 }
 
+bool _sr_gui_init_COM(){
+	HRESULT res = CoInitializeEx(NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE);
+	return (res == RPC_E_CHANGED_MODE || SUCCEEDED(res));
+}
+
+// deinit will be CoUninitialize()
+
+bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
+	if(!exts){
+		return true;
+	}
+	int extsLen = strlen(exts);
+	if(extsLen == 0){
+		return true;
+	}
+	// Count extensions.
+	int count = 1;
+	for(size_t cid = 0; cid < extsLen; ++cid){
+		if(exts[cid] == ','){
+			++count;
+		}
+	}
+	// Add wildcard at the end.
+	++count;
+
+	COMDLG_FILTERSPEC* filterList = (COMDLG_FILTERSPEC*) SR_GUI_MALLOC(count * sizeof(COMDLG_FILTERSPEC));
+	if(filterList == nullptr){
+		return false;
+	}
+	char extBuffer[SR_GUI_MAX_STR_SIZE];
+	extBuffer[0] = '*';
+	extBuffer[1] = '.';
+
+	size_t cid = 0;
+
+	for(size_t fid = 0; fid < count-1; ++fid){
+		// After the wildcard.
+		size_t bid = 2;
+		while(cid < extsLen && exts[cid] != ','){
+			extBuffer[bid] = exts[cid];
+			++bid;
+			++cid;
+		}
+		extBuffer[bid] = '\0';
+		// ...
+		specList[specIdx].pszName = _sr_gui_widen_string(&extBuffer[2]);
+		specList[specIdx].pszSpec = _sr_gui_widen_string(extBuffer);
+		// Skip comma.
+		++cid;
+		if(cid >= extsLen){
+			break;
+		}
+	}
+	filterList[count-1].pszSpec = L"*.*";
+	filterList[count-1].pszName = L"*.*";
+	dialog->SetFileTypes( count, filterList );
+
+	for(size_t fid = 0; fid < count-1; ++fid){
+		SR_GUI_FREE(filterList[fid].pszSpec);
+		SR_GUI_FREE(filterList[fid].pszName);
+	}
+	SR_GUI_FREE(specList);
+}
+
+bool _sr_gui_add_default_path(const char* path, IFileDialog* dialog){
+	if(!path){
+		return true;
+	}
+	if(strlen(path) == 0){
+		return true;
+	}
+	WCHAR* startDirW = _sr_gui_widen_string(path);
+	IShellItem *pathShell;
+	HRESULT res = SHCreateItemFromParsingName(startDirW, NULL, IID_PPV_ARGS(&pathShell));
+	SR_GUI_FREE(startDirW);
+
+	if(!SUCCEEDED(res) && (res != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) && (result != HRESULT_FROM_WIN32(ERROR_INVALID_DRIVE))){
+		return false;
+	}
+	dialog->SetFolder( pathShell);
+	pathShell->Release();
+	return true;
+}
+
 int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath) {
-	return SR_GUI_CANCELLED;
+	if(!_sr_gui_init_COM()){
+		return SR_GUI_CANCELLED;
+	}
+	IFileDialog *dialog = NULL;
+	HRESULT res = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+	// Set default path.
+	bool success = _sr_gui_add_default_path(startDir, dialog);
+	if(!success){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Set title.
+	WCHAR* titleW = _sr_gui_widen_string(title);
+	res = dialog->SetTitle(titleW);
+	SR_GUI_FREE(titleW);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Options: pick only directories.
+	DWORD options = 0;
+	res = dialog->GetOptions(&options);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+	res = dialog->SetOptions(options | FOS_PICKFOLDERS);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Present
+	res = dialog->Show(nullptr);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	IShellItem* selectedItem = nullptr;
+	res = fileDialog->GetResult(&selectedItem);
+	dialog->Release();
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+
+	WCHAR* selectedPath = nullptr;
+	res = selectedItem->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &selectedPath);
+	selectedItem->Release();
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+	*outPath = _sr_gui_narrow_string(selectedPath);
+	CoTaskMemFree(selectedPath);
+	return SR_GUI_VALIDATED;
 }
 
 int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount) {
-	return SR_GUI_CANCELLED;
+	*outCount = 0;
+	*outPaths = NULL;
+
+	if(!_sr_gui_init_COM()){
+		return SR_GUI_CANCELLED;
+	}
+	IFileDialog *dialog = NULL;
+	HRESULT res = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+	// Set default path.
+	bool success = _sr_gui_add_default_path(startDir, dialog);
+	if(!success){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Set extension filter.
+	success = _sr_gui_add_filter_extensions(exts, dialog);
+	if(!success){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Set title.
+	WCHAR* titleW = _sr_gui_widen_string(title);
+	res = dialog->SetTitle(titleW);
+	SR_GUI_FREE(titleW);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+	// Options: multiple selection allowed.
+	DWORD options = 0;
+	res = dialog->GetOptions(&options);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+	res = dialog->SetOptions(options | FOS_ALLOWMULTISELECT);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Present
+	res = dialog->Show(nullptr);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+	IShellItemArray* selectedItems = nullptr;
+	res = fileDialog->GetResults(&selectedItems);
+	dialog->Release();
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+
+	DWORD itemsCount;
+	res = selectedItems->GetCount(&itemsCount);
+	*outCount = 0;
+	if(*itemsCount > 0){
+		*outPaths = (char**)SR_GUI_MALLOC(sizeof(char*) * itemsCount);
+		for(int i = 0; i < itemsCount; ++i){
+			IShellItem *selectedItem = nullptr;
+			selectedItems->GetItemAt(iid, &selectedItems);
+			// Skip non-file elements.
+			SFGAOF attributes;
+			res = selectedItem->GetAttributes( SFGAO_FILESYSTEM, &attributes );
+			if(!(attribs & SFGAO_FILESYSTEM)){
+				continue;
+			}
+			(*outCount)++;
+			WCHAR* selectedPath = nullptr;
+			res = selectedItem->GetDisplayName(SIGDN_FILESYSPATH, &selectedPath);
+			*outPaths[i] = _sr_gui_narrow_string(selectedPath);
+			CoTaskMemFree(selectedPath);
+		}
+	}
+	selectedItems->Release();
+
+	return SR_GUI_VALIDATED;
 }
 
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outpath) {
-	return SR_GUI_CANCELLED;
+	if(!_sr_gui_init_COM()){
+		return SR_GUI_CANCELLED;
+	}
+	IFileDialog *dialog = NULL;
+	HRESULT res = CoCreateInstance(CLSID_FileSaveDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+	// Set default path.
+	bool success = _sr_gui_add_default_path(startDir, dialog);
+	if(!success){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Set extension filter.
+	success = _sr_gui_add_filter_extensions(exts, dialog);
+	if(!success){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Set title.
+	WCHAR* titleW = _sr_gui_widen_string(title);
+	res = dialog->SetTitle(titleW);
+	SR_GUI_FREE(titleW);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Present
+	res = dialog->Show(nullptr);
+	if(!SUCCEEDED(res)){
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	IShellItem* selectedItem = nullptr;
+	res = fileDialog->GetResult(&selectedItem);
+	dialog->Release();
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+
+	WCHAR* selectedPath = nullptr;
+	res = selectedItem->GetDisplayName(SIGDN_FILESYSPATH, &selectedPath);
+	selectedItem->Release();
+	if(!SUCCEEDED(res)){
+		return SR_GUI_CANCELLED;
+	}
+	*outPath = _sr_gui_narrow_string(selectedPath);
+	CoTaskMemFree(selectedPath);
+	return SR_GUI_VALIDATED;
 }
 
 // Non thread safe, check if SetWindowText et al. are thread safe or not.
@@ -96,11 +375,11 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	UnhookWindowsHookEx(hook);
 
 	// Cleanup.
-	free(titleW);
-	free(messageW);
-	free(_sr_gui_button0); _sr_gui_button0 = nullptr;
-	free(_sr_gui_button1); _sr_gui_button1 = nullptr;
-	free(_sr_gui_button2); _sr_gui_button2 = nullptr;
+	SR_GUI_FREE(titleW);
+	SR_GUI_FREE(messageW);
+	SR_GUI_FREE(_sr_gui_button0); _sr_gui_button0 = nullptr;
+	SR_GUI_FREE(_sr_gui_button1); _sr_gui_button1 = nullptr;
+	SR_GUI_FREE(_sr_gui_button2); _sr_gui_button2 = nullptr;
 
 	if(res == IDYES) {
 		return SR_GUI_BUTTON0;
@@ -301,8 +580,8 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 
 	HGLOBAL hgbl = GlobalAlloc( GMEM_ZEROINIT, maxSize );
 	if( !hgbl ) {
-		free( messageW );
-		free( titleW );
+		SR_GUI_FREE( messageW );
+		SR_GUI_FREE( titleW );
 		return SR_GUI_CANCELLED;
 	}
 
@@ -313,8 +592,8 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 	// Define a dialog box.
 	_sr_gui_dialog_template_head* dialog = (_sr_gui_dialog_template_head*) GlobalLock( hgbl );
 	if( dialog == nullptr ) {
-		free( messageW );
-		free( titleW );
+		SR_GUI_FREE( messageW );
+		SR_GUI_FREE( titleW );
 		return SR_GUI_CANCELLED;
 	}
 
@@ -376,8 +655,8 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 	GlobalUnlock(hgbl);
 	LRESULT ret = DialogBoxIndirect(NULL, (LPDLGTEMPLATE) hgbl, NULL, (DLGPROC) _sr_gui_message_callback);
 	GlobalFree(hgbl);
-	free(titleW);
-	free(messageW);
+	SR_GUI_FREE(titleW);
+	SR_GUI_FREE(messageW);
 
 	if(ret != SR_GUI_VALIDATED || (_sr_gui_message_result == nullptr)){
 		return SR_GUI_CANCELLED;
@@ -393,7 +672,7 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 	memcpy(*result, _sr_gui_message_result, resLength);
 	(*result)[resLength] = '\0';
 
-	free(_sr_gui_message_result);
+	SR_GUI_FREE(_sr_gui_message_result);
 	_sr_gui_message_result = nullptr;
 	return SR_GUI_VALIDATED;
 }
