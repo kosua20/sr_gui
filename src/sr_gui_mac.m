@@ -58,7 +58,7 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 	const int strSize = strlen(resStr);
 
 	*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize+1));
-	memcpy(*outPath, resStr, strSize);
+	SR_GUI_MEMCPY(*outPath, resStr, sizeof(char) * strSize);
 	(*outPath)[strSize] = '\0';
 
 	[panel release];
@@ -97,7 +97,7 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 			const char* resStr = [[[urls objectAtIndex:i] path] UTF8String];
 			const int strSize = strlen(resStr);
 			(*outPaths)[i] = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize+1));
-			memcpy((*outPaths)[i], resStr, strSize);
+			SR_GUI_MEMCPY((*outPaths)[i], resStr, sizeof(char) * strSize);
 			(*outPaths)[i][strSize] = '\0';
 		}
 	}
@@ -133,7 +133,7 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 	const int strSize = strlen(resStr);
 
 	*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize+1));
-	memcpy(*outPath, resStr, strSize);
+	SR_GUI_MEMCPY(*outPath, resStr, sizeof(char) * strSize);
 	(*outPath)[strSize] = '\0';
 
 	[panel release];
@@ -203,7 +203,7 @@ int sr_gui_ask_string(const char* title, const char* message, char** result){
 	const int resLength = strlen(strRes);
 
 	*result = (char*) SR_GUI_MALLOC(sizeof(char) * (resLength + 1));
-	memcpy(*result, strRes, resLength);
+	SR_GUI_MEMCPY(*result, strRes, sizeof(char) * resLength);
 	(*result)[resLength] = '\0';
 
 	[alert release];

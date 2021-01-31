@@ -9,6 +9,11 @@
 #define SR_GUI_FREE(S) (free(S))
 #endif
 
+#ifndef SR_GUI_MEMCPY
+#include <stdlib.h>
+#define SR_GUI_MEMCPY(D, S, T) (memcpy(D, S, T))
+#endif
+
 #ifndef SR_GUI_MAX_STR_SIZE
 #define SR_GUI_MAX_STR_SIZE 1024
 #endif
