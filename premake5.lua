@@ -42,6 +42,7 @@ project("sr_gui")
 
 	filter("system:macosx")
 		language("C")
+	--	files({"src/sr_gui_cli.c"})
 		files({"src/sr_gui_mac.m"})
 
 	filter({"system:linux"})
