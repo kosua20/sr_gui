@@ -677,7 +677,7 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_color( unsigned char color[4], int askAlpha ) {
+int sr_gui_ask_color( unsigned char color[3] ) {
 
 	DWORD colorD = RGB(color[0], color[1], color[2]);
 	// Preserve palette of favorite colors between calls.
@@ -699,7 +699,6 @@ int sr_gui_ask_color( unsigned char color[4], int askAlpha ) {
 	color[0] = GetRValue(colorSettings.rgbResult);
 	color[1] = GetGValue(colorSettings.rgbResult);
 	color[2] = GetBValue(colorSettings.rgbResult);
-	color[3] = 255;
 
 	return SR_GUI_VALIDATED;
 }

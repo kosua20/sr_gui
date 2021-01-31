@@ -15,9 +15,6 @@ extern "C" {
 #define SR_GUI_BUTTON1 (SR_GUI_BUTTON0+1)
 #define SR_GUI_BUTTON2 (SR_GUI_BUTTON0+2)
 
-#define SR_GUI_ASK_ALPHA 1
-#define SR_GUI_DONT_ASK_ALPHA 0
-
 void sr_gui_show_message(const char* title, const char* message, int level);
 
 void sr_gui_show_notification(const char* title, const char* message);
@@ -32,7 +29,7 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 
 int sr_gui_ask_string(const char* title, const char* message, char** result);
 
-int sr_gui_ask_color(unsigned char color[4], int askAlpha);
+int sr_gui_ask_color(unsigned char color[3]);
 	
 #ifdef __cplusplus
 }

@@ -74,11 +74,11 @@ int main(int argc, char** argv){
 	}
 
 	{
-		unsigned char col[4];
-		col[0] = 0; col[1] = 255; col[2] = 128; col[3] = 128;
-		int res = sr_gui_ask_color(col, SR_GUI_ASK_ALPHA);
+		unsigned char col[3];
+		col[0] = 0; col[1] = 255; col[2] = 128;
+		int res = sr_gui_ask_color(col);
 		if( res == SR_GUI_VALIDATED){
-			printf("Color was: %d,%d,%d,%d\n", (int)col[0], (int)col[1], (int)col[2], (int)col[3]);
+			printf("Color was: %d,%d,%d\n", (int)col[0], (int)col[1], (int)col[2]);
 		} else {
 			printf("Color query cancelled.\n");
 		}
