@@ -24,7 +24,6 @@ project("sr_gui")
 	kind("StaticLib")
 	systemversion("latest")
 	
-
 	filter("toolset:not msc*")
 		buildoptions({ "-Wall", "-Wextra" })
 	filter("toolset:msc*")
@@ -48,12 +47,25 @@ project("sr_gui")
 	filter({"system:linux"})
 		language("C")
 		files({"src/sr_gui_lin.c"})
-
-	-- visual studio filters
-	--filter("action:vs*")
-	--	defines({ "_CRT_SECURE_NO_WARNINGS" })    
-
+   
 	filter({})
+
+project("sr_gui_cli")
+	kind("StaticLib")
+	systemversion("latest")
+	
+	filter("toolset:not msc*")
+		buildoptions({ "-Wall", "-Wextra" })
+	filter("toolset:msc*")
+		buildoptions({ "-W3"})
+	filter({})
+
+	includedirs({"include/"})
+	-- common files
+	files({"include/sr_gui.h", "src/sr_gui_internal.h", "src/sr_gui.c"})
+	
+	language("C")
+	files({"src/sr_gui_cli.c"})
 
 include("example/premake5.lua")
 

@@ -31,7 +31,7 @@ int _sr_gui_query_line_from_cin(char* buffer, int size){
 	if(endLine){
 		*endLine = '\0';
 	}
-	lenRead = strlen(buffer);
+	lenRead = (int)strlen(buffer);
 	// Read what's left in a temporary buffer.
 	/*char temp[SR_GUI_MAX_STR_SIZE];
 	while(fgets(temp, SR_GUI_MAX_STR_SIZE-1, stdin) != NULL){
@@ -182,11 +182,15 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 		return SR_GUI_CANCELLED;
 	}
 	int button = 0;
+#ifdef _WIN32
+	int res = sscanf_s( buffer, "%d", &button );
+#else
 	int res = sscanf(buffer, "%d", &button);
+#endif 
 	if(res < 1 || res == EOF){
 		return SR_GUI_CANCELLED;
 	}
-	button = fmin(fmax(button-1, 0), 2);
+	button = (int)fmin(fmax(button-1, 0), 2);
 	return SR_GUI_BUTTON0 + button;
 }
 
@@ -218,7 +222,11 @@ int sr_gui_ask_color(unsigned char color[3]){
 		return SR_GUI_CANCELLED;
 	}
 	int rgb[3];
+#ifdef _WIN32
+	int res = sscanf_s( buffer, "%d %d %d", &rgb[0], &rgb[1], &rgb[2] );
+#else
 	int res = sscanf(buffer, "%d %d %d", &rgb[0], &rgb[1], &rgb[2]);
+#endif
 	if(res < 3 || res == EOF){
 		return SR_GUI_CANCELLED;
 	}
