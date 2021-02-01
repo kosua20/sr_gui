@@ -10,6 +10,17 @@
 #include <windows.h>
 #include <shobjidl.h>
 
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
+bool _sr_gui_init_COM() {
+	HRESULT res = CoInitializeEx( NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE );
+	return ( res == RPC_E_CHANGED_MODE || SUCCEEDED( res ) );
+}
+
+// deinit will be CoUninitialize()
+
 // Transfer output ownership to the caller.
 wchar_t* _sr_gui_widen_string(const char* str) {
 	const int sizeWide = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
@@ -27,42 +38,42 @@ char* _sr_gui_narrow_string(const wchar_t* wstr) {
 }
 
 void sr_gui_show_message(const char* title, const char* message, int level) {
+	
 	wchar_t* titleW = _sr_gui_widen_string(title);
 	wchar_t* messageW = _sr_gui_widen_string(message);
 
-	unsigned long flags = MB_OK;
+	PCWSTR icon = TD_INFORMATION_ICON;
 	if(level == SR_GUI_MESSAGE_LEVEL_ERROR) {
-		flags |= MB_ICONERROR;
+		icon = TD_ERROR_ICON;
 	} else if(level == SR_GUI_MESSAGE_LEVEL_WARN) {
-		flags |= MB_ICONWARNING;
-	} else {
-		flags |= MB_ICONINFORMATION;
+		icon = TD_WARNING_ICON;
 	}
-	
-	int res = MessageBox(NULL, messageW, titleW, flags);
+
+	HRESULT res = TaskDialog( NULL, NULL, NULL, titleW, messageW, TDCBF_OK_BUTTON, icon, NULL );
 	(void) res;
 
-	SR_GUI_FREE(titleW);
-	SR_GUI_FREE(messageW);
+	SR_GUI_FREE( titleW );
+	SR_GUI_FREE( messageW );
 }
 
 void sr_gui_show_notification(const char* title, const char* message) {
 	
 }
 
-bool _sr_gui_init_COM(){
-	HRESULT res = CoInitializeEx(NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE);
-	return (res == RPC_E_CHANGED_MODE || SUCCEEDED(res));
-}
-
-// deinit will be CoUninitialize()
-
 bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
 	if(!exts){
+		COMDLG_FILTERSPEC filter;
+		filter.pszSpec = L"*.*";
+		filter.pszName = L"*.*";
+		dialog->SetFileTypes( 1, &filter );
 		return true;
 	}
-	int extsLen = strlen(exts);
+	size_t extsLen = strlen(exts);
 	if(extsLen == 0){
+		COMDLG_FILTERSPEC filter;
+		filter.pszSpec = L"*.*";
+		filter.pszName = L"*.*";
+		dialog->SetFileTypes( 1, &filter );
 		return true;
 	}
 	// Count extensions.
@@ -95,8 +106,8 @@ bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
 		}
 		extBuffer[bid] = '\0';
 		// ...
-		specList[specIdx].pszName = _sr_gui_widen_string(&extBuffer[2]);
-		specList[specIdx].pszSpec = _sr_gui_widen_string(extBuffer);
+		filterList[fid].pszName = _sr_gui_widen_string(&extBuffer[2]);
+		filterList[fid].pszSpec = _sr_gui_widen_string(extBuffer);
 		// Skip comma.
 		++cid;
 		if(cid >= extsLen){
@@ -108,10 +119,11 @@ bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
 	dialog->SetFileTypes( count, filterList );
 
 	for(size_t fid = 0; fid < count-1; ++fid){
-		SR_GUI_FREE(filterList[fid].pszSpec);
-		SR_GUI_FREE(filterList[fid].pszName);
+		SR_GUI_FREE((void*)filterList[fid].pszSpec);
+		SR_GUI_FREE((void*)filterList[fid].pszName);
 	}
-	SR_GUI_FREE(specList);
+	SR_GUI_FREE( filterList );
+	return true;
 }
 
 bool _sr_gui_add_default_path(const char* path, IFileDialog* dialog){
@@ -121,12 +133,16 @@ bool _sr_gui_add_default_path(const char* path, IFileDialog* dialog){
 	if(strlen(path) == 0){
 		return true;
 	}
+	// Skip local paths, unsupported by shell item.
+	if( strcmp( path, "./" ) == 0 || path[0] == '.') {
+		return true;
+	}
 	WCHAR* startDirW = _sr_gui_widen_string(path);
 	IShellItem *pathShell;
 	HRESULT res = SHCreateItemFromParsingName(startDirW, NULL, IID_PPV_ARGS(&pathShell));
 	SR_GUI_FREE(startDirW);
 
-	if(!SUCCEEDED(res) && (res != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) && (result != HRESULT_FROM_WIN32(ERROR_INVALID_DRIVE))){
+	if(!SUCCEEDED(res) && (res != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) && (res != HRESULT_FROM_WIN32(ERROR_INVALID_DRIVE))){
 		return false;
 	}
 	dialog->SetFolder( pathShell);
@@ -135,10 +151,12 @@ bool _sr_gui_add_default_path(const char* path, IFileDialog* dialog){
 }
 
 int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath) {
+	*outPath = nullptr;
+
 	if(!_sr_gui_init_COM()){
 		return SR_GUI_CANCELLED;
 	}
-	IFileDialog *dialog = NULL;
+	IFileOpenDialog *dialog = NULL;
 	HRESULT res = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
 	if(!SUCCEEDED(res)){
 		return SR_GUI_CANCELLED;
@@ -180,7 +198,7 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 	}
 
 	IShellItem* selectedItem = nullptr;
-	res = fileDialog->GetResult(&selectedItem);
+	res = dialog->GetResult(&selectedItem);
 	dialog->Release();
 	if(!SUCCEEDED(res)){
 		return SR_GUI_CANCELLED;
@@ -204,7 +222,7 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	if(!_sr_gui_init_COM()){
 		return SR_GUI_CANCELLED;
 	}
-	IFileDialog *dialog = NULL;
+	IFileOpenDialog*dialog = NULL;
 	HRESULT res = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
 	if(!SUCCEEDED(res)){
 		return SR_GUI_CANCELLED;
@@ -251,7 +269,7 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 		return SR_GUI_CANCELLED;
 	}
 	IShellItemArray* selectedItems = nullptr;
-	res = fileDialog->GetResults(&selectedItems);
+	res = dialog->GetResults(&selectedItems);
 	dialog->Release();
 	if(!SUCCEEDED(res)){
 		return SR_GUI_CANCELLED;
@@ -260,22 +278,32 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	DWORD itemsCount;
 	res = selectedItems->GetCount(&itemsCount);
 	*outCount = 0;
-	if(*itemsCount > 0){
+	if( itemsCount > 0){
 		*outPaths = (char**)SR_GUI_MALLOC(sizeof(char*) * itemsCount);
-		for(int i = 0; i < itemsCount; ++i){
+		if( *outPaths == nullptr ) {
+			selectedItems->Release();
+			return SR_GUI_CANCELLED;
+		}
+
+		for(int i = 0; i < int(itemsCount); ++i){
 			IShellItem *selectedItem = nullptr;
-			selectedItems->GetItemAt(iid, &selectedItems);
+			selectedItems->GetItemAt(i, &selectedItem);
 			// Skip non-file elements.
 			SFGAOF attributes;
 			res = selectedItem->GetAttributes( SFGAO_FILESYSTEM, &attributes );
-			if(!(attribs & SFGAO_FILESYSTEM)){
+			if(!( attributes & SFGAO_FILESYSTEM)){
 				continue;
 			}
-			(*outCount)++;
+			
 			WCHAR* selectedPath = nullptr;
 			res = selectedItem->GetDisplayName(SIGDN_FILESYSPATH, &selectedPath);
-			*outPaths[i] = _sr_gui_narrow_string(selectedPath);
-			CoTaskMemFree(selectedPath);
+			char* path = _sr_gui_narrow_string( selectedPath );
+			CoTaskMemFree( selectedPath );
+			if( path == nullptr ) {
+				continue;
+			}
+			(*outPaths)[*outCount] = path;
+			( *outCount )++;
 		}
 	}
 	selectedItems->Release();
@@ -283,11 +311,12 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outpath) {
+int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	*outPath = NULL;
 	if(!_sr_gui_init_COM()){
 		return SR_GUI_CANCELLED;
 	}
-	IFileDialog *dialog = NULL;
+	IFileSaveDialog *dialog = NULL;
 	HRESULT res = CoCreateInstance(CLSID_FileSaveDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
 	if(!SUCCEEDED(res)){
 		return SR_GUI_CANCELLED;
@@ -323,7 +352,7 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 	}
 
 	IShellItem* selectedItem = nullptr;
-	res = fileDialog->GetResult(&selectedItem);
+	res = dialog->GetResult(&selectedItem);
 	dialog->Release();
 	if(!SUCCEEDED(res)){
 		return SR_GUI_CANCELLED;
@@ -340,53 +369,49 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 	return SR_GUI_VALIDATED;
 }
 
-// Non thread safe, check if SetWindowText et al. are thread safe or not.
-static wchar_t* _sr_gui_button0 = nullptr;
-static wchar_t* _sr_gui_button1 = nullptr;
-static wchar_t* _sr_gui_button2 = nullptr;
-
-static LRESULT __stdcall _sr_gui_change_message_captions(int nCode, WPARAM wParam, LPARAM lParam) {
-	if(nCode == HCBT_ACTIVATE) {
-		SetWindowText(GetDlgItem((HWND)wParam, IDYES), _sr_gui_button0);
-		SetWindowText(GetDlgItem((HWND)wParam, IDNO), _sr_gui_button1);
-		SetWindowText(GetDlgItem((HWND)wParam, IDCANCEL), _sr_gui_button2);
-	}
-	return 0;
-}
-
 int sr_gui_ask_choice(const char* title, const char* message, int level, const char* button0, const char* button1, const char* button2) {
-	wchar_t* titleW = _sr_gui_widen_string(title);
-	wchar_t* messageW = _sr_gui_widen_string(message);
+	WCHAR* titleW = _sr_gui_widen_string( title );
+	WCHAR* messageW = _sr_gui_widen_string( message );
+	WCHAR* button0W = _sr_gui_widen_string(button0);
+	WCHAR* button1W = _sr_gui_widen_string(button1);
+	WCHAR* button2W = _sr_gui_widen_string(button2);
 
-	_sr_gui_button0 = _sr_gui_widen_string(button0);
-	_sr_gui_button1 = _sr_gui_widen_string(button1);
-	_sr_gui_button2 = _sr_gui_widen_string(button2);
-	unsigned long flags = MB_YESNOCANCEL;
-
-	if(level == SR_GUI_MESSAGE_LEVEL_ERROR) {
-		flags |= MB_ICONERROR;
-	} else if(level == SR_GUI_MESSAGE_LEVEL_WARN) {
-		flags |= MB_ICONWARNING;
-	} else {
-		flags |= MB_ICONINFORMATION;
+	const TASKDIALOG_BUTTON buttons[] = { { SR_GUI_BUTTON0, button0W }, { SR_GUI_BUTTON1, button1W }, { SR_GUI_BUTTON2, button2W } };
+	
+	PCWSTR icon = TD_INFORMATION_ICON;
+	if( level == SR_GUI_MESSAGE_LEVEL_ERROR ) {
+		icon = TD_ERROR_ICON;
 	}
-	HHOOK hook = SetWindowsHookEx(WH_CBT, _sr_gui_change_message_captions, NULL, GetCurrentThreadId());
-	int res = MessageBox(NULL, messageW, titleW, flags);
-	UnhookWindowsHookEx(hook);
+	else if( level == SR_GUI_MESSAGE_LEVEL_WARN ) {
+		icon = TD_WARNING_ICON;
+	}
+
+	TASKDIALOGCONFIG dialog = { 0 };
+	dialog.cbSize = sizeof( TASKDIALOGCONFIG );
+	dialog.hInstance = NULL;
+	dialog.pszMainIcon = icon;
+	dialog.pszMainInstruction = titleW;
+	dialog.pszContent = messageW;
+	dialog.pButtons = buttons;
+	dialog.cButtons = ARRAYSIZE( buttons );
+	dialog.nDefaultButton = SR_GUI_BUTTON0;
+
+	int button = -1;
+	HRESULT res = TaskDialogIndirect( &dialog, &button, NULL, NULL );
 
 	// Cleanup.
 	SR_GUI_FREE(titleW);
 	SR_GUI_FREE(messageW);
-	SR_GUI_FREE(_sr_gui_button0); _sr_gui_button0 = nullptr;
-	SR_GUI_FREE(_sr_gui_button1); _sr_gui_button1 = nullptr;
-	SR_GUI_FREE(_sr_gui_button2); _sr_gui_button2 = nullptr;
+	SR_GUI_FREE( button0W );
+	SR_GUI_FREE( button1W );
+	SR_GUI_FREE( button2W );
 
-	if(res == IDYES) {
-		return SR_GUI_BUTTON0;
-	} else if(res == IDNO) {
-		return SR_GUI_BUTTON1;
+	// Result
+	if( FAILED( res ) || button < SR_GUI_BUTTON0 || button > SR_GUI_BUTTON2 ) {
+		return SR_GUI_CANCELLED;
 	}
-	return SR_GUI_BUTTON2;
+
+	return button;
 }
 
 // Not thread safe, might be passed as data somewhere.
@@ -395,7 +420,7 @@ char* _sr_gui_message_result = nullptr;
 #define _SR_GUI_ID_MESSAGE   150
 #define _SR_GUI_ID_TEXT   200
 
-BOOL CALLBACK _sr_gui_message_callback(HWND hwndDlg, UINT message, WPARAM wParam,  LPARAM lParam){
+BOOL CALLBACK _sr_gui_message_callback2(HWND hwndDlg, UINT message, WPARAM wParam,  LPARAM lParam){
 	switch(message)
 	{
 		/*case WM_CTLCOLOR:
@@ -552,6 +577,25 @@ void _sr_gui_get_font_scaling(const WCHAR* name, int size, int* w, int* h ) {
 }
 
 
+struct _sr_gui_message_callback_data
+{
+	HWND textField;
+	char** content;
+};
+
+HRESULT _sr_gui_message_callback( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, LONG_PTR lpRefData ) {
+	if( msg == TDN_CREATED ) {
+		
+		_sr_gui_message_callback_data* data = (_sr_gui_message_callback_data*) ( lpRefData );
+		data->textField = CreateWindow( L"EDIT", NULL,
+										WS_BORDER | WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT |
+										ES_MULTILINE | ES_AUTOVSCROLL,
+								  10, 30, 300, 15,
+								  hwnd, (HMENU) 5, NULL, NULL );
+	}
+	return S_OK;
+}
+
 int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 
 #define _SR_GUI_CONTROL_COUNT 4
@@ -561,119 +605,143 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 	// Initialize all strings.
 	WCHAR* titleW = _sr_gui_widen_string( title );
 	WCHAR* messageW = _sr_gui_widen_string( message );
-	const WCHAR* fontW = L"MS Shell Dlg 2";
-	const WCHAR* okW = L"OK";
-	const WCHAR* cancelW = L"Cancel";
-	const WCHAR* defaultW = L"Default value";
 
-	// Size of each struct in memory (dialog + n * control).
-	size_t maxSize = sizeof( _sr_gui_dialog_template_head ) + sizeof( _sr_gui_dialog_template_tail );
-	maxSize += _SR_GUI_CONTROL_COUNT * ( sizeof( _sr_gui_control_template_head ) + sizeof( _sr_gui_control_template_tail ) );
-	// Padding for the strings (at most).
-	maxSize += sizeof( WORD ) * ( 2 + _SR_GUI_CONTROL_COUNT * 1 );
-	// Padding for the control structs (at most).
-	maxSize += sizeof( DWORD ) * ( _SR_GUI_CONTROL_COUNT );
-	// Size of all strings.
-	maxSize += (wcslen( titleW ) + wcslen(messageW) + wcslen(okW) + wcslen( fontW ) + wcslen( cancelW ) + wcslen( defaultW )) * sizeof(WCHAR);
-	// Extra padding.
-	maxSize += 1024;
-
-	HGLOBAL hgbl = GlobalAlloc( GMEM_ZEROINIT, maxSize );
-	if( !hgbl ) {
-		SR_GUI_FREE( messageW );
-		SR_GUI_FREE( titleW );
-		return SR_GUI_CANCELLED;
+	/*PCWSTR icon = TD_INFORMATION_ICON;
+	if( level == SR_GUI_MESSAGE_LEVEL_ERROR ) {
+		icon = TD_ERROR_ICON;
 	}
+	else if( level == SR_GUI_MESSAGE_LEVEL_WARN ) {
+		icon = TD_WARNING_ICON;
+	}*/
 
-	// Retrieve pixel scaling.
-	int w, h;
-	_sr_gui_get_font_scaling( fontW, 8, &w, &h );
+	_sr_gui_message_callback_data callData;
+	callData.content = result;
 
-	// Define a dialog box.
-	_sr_gui_dialog_template_head* dialog = (_sr_gui_dialog_template_head*) GlobalLock( hgbl );
-	if( dialog == nullptr ) {
-		SR_GUI_FREE( messageW );
-		SR_GUI_FREE( titleW );
-		return SR_GUI_CANCELLED;
-	}
+	TASKDIALOGCONFIG dialog = { 0 };
+	dialog.cbSize = sizeof( TASKDIALOGCONFIG );
+	dialog.hInstance = NULL;
+	dialog.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
+	//dialog.pszMainIcon = icon;
+	dialog.pszMainInstruction = titleW;
+	dialog.pszContent = messageW;
+	dialog.nDefaultButton = IDOK;
+	dialog.lpCallbackData = (LONG_PTR)(&callData);
+	dialog.pfCallback = _sr_gui_message_callback;
+	int button = -1;
+	HRESULT res = TaskDialogIndirect( &dialog, &button, NULL, NULL );
+	//const WCHAR* fontW = L"MS Shell Dlg 2";
+	//const WCHAR* okW = L"OK";
+	//const WCHAR* cancelW = L"Cancel";
+	//const WCHAR* defaultW = L"Default value";
 
-	dialog->dlgVer = 1;
-	dialog->signature = 0xFFFF;
-	dialog->style = DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION | DS_SHELLFONT;
-	dialog->cDlgItems = 4;  // Number of controls
-	dialog->x = 0;  dialog->y = 0;
-	dialog->cx = MulDiv( 360, 4, w ); dialog->cy = MulDiv( 110, 8, h );
-	dialog->menu = 0;
-	dialog->windowClass = 0;
-	// Oh boy. Move after the window class. 
-	uintptr_t head = (uintptr_t) ( &( dialog->windowClass ) );
-	head += sizeof( WORD );
-	// Insert the string afterward, properly aligned.
-	head = _sr_gui_insert_string( head, titleW );
+	//// Size of each struct in memory (dialog + n * control).
+	//size_t maxSize = sizeof( _sr_gui_dialog_template_head ) + sizeof( _sr_gui_dialog_template_tail );
+	//maxSize += _SR_GUI_CONTROL_COUNT * ( sizeof( _sr_gui_control_template_head ) + sizeof( _sr_gui_control_template_tail ) );
+	//// Padding for the strings (at most).
+	//maxSize += sizeof( WORD ) * ( 2 + _SR_GUI_CONTROL_COUNT * 1 );
+	//// Padding for the control structs (at most).
+	//maxSize += sizeof( DWORD ) * ( _SR_GUI_CONTROL_COUNT );
+	//// Size of all strings.
+	//maxSize += (wcslen( titleW ) + wcslen(messageW) + wcslen(okW) + wcslen( fontW ) + wcslen( cancelW ) + wcslen( defaultW )) * sizeof(WCHAR);
+	//// Extra padding.
+	//maxSize += 1024;
 
-	_sr_gui_dialog_template_tail* dialogEnd = (_sr_gui_dialog_template_tail*) ( head );
-	dialogEnd->pointsize = 8;
-	dialogEnd->weight = FW_NORMAL;
-	dialogEnd->italic = FALSE;
-	dialogEnd->charset = DEFAULT_CHARSET;
-	// Move after the charset.
-	head = (uintptr_t) ( &( dialogEnd->charset ) );
-	head += sizeof( BYTE );
-	// Insert the font fixed name afterward, properly aligned.
-	head = _sr_gui_insert_string( head, fontW );
+	//HGLOBAL hgbl = GlobalAlloc( GMEM_ZEROINIT, maxSize );
+	//if( !hgbl ) {
+	//	SR_GUI_FREE( messageW );
+	//	SR_GUI_FREE( titleW );
+	//	return SR_GUI_CANCELLED;
+	//}
 
-	// Move to the controls. 
-	_sr_gui_control_infos controls[4];
-	controls[0] = { okW, IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP, 0x0080,		170, 81, 83, 23 };
-	controls[1] = { cancelW, IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 0x0080,	262, 81, 83, 23};
-	controls[2] = { messageW, _SR_GUI_ID_MESSAGE, 0, 0x0082,				32, 17, 300, 30 };
-	controls[3] = { defaultW, _SR_GUI_ID_TEXT, WS_TABSTOP, 0x0081,			32, 47, 300, 15 };
+	//// Retrieve pixel scaling.
+	//int w, h;
+	//_sr_gui_get_font_scaling( fontW, 8, &w, &h );
 
-	for(size_t cid = 0; cid < 4; ++cid ){
-		// Each should be aligned on a dword.
-		const _sr_gui_control_infos& cinf = controls[cid];
-		head = _sr_gui_align_ptr_dword( head );
-		_sr_gui_control_template_head* control = (_sr_gui_control_template_head*) head;
-		control->x = MulDiv( cinf.x, 4, w );
-		control->y = MulDiv( cinf.y, 8, h );
-		control->cx = MulDiv( cinf.w, 4, w );
-		control->cy = MulDiv( cinf.h, 8, h );
-		control->id = cinf.id; // Standard ID.
-		control->style = WS_CHILD | WS_VISIBLE | cinf.style;
-		control->windowClass[0] = 0xFFFF;
-		control->windowClass[1] = cinf.type; // Button class
-		// Move after the windowClass.
-		head = (uintptr_t) ( control->windowClass );
-		head += 2 * sizeof( WORD );
-		head = _sr_gui_insert_string( head, cinf.txt );
-		// Then the tail.
-		_sr_gui_control_template_tail* controlEnd = (_sr_gui_control_template_tail*) ( head );
-		controlEnd->extraCount = 0;
-		head += sizeof( WORD );
-	}
+	//// Define a dialog box.
+	//_sr_gui_dialog_template_head* dialog = (_sr_gui_dialog_template_head*) GlobalLock( hgbl );
+	//if( dialog == nullptr ) {
+	//	SR_GUI_FREE( messageW );
+	//	SR_GUI_FREE( titleW );
+	//	return SR_GUI_CANCELLED;
+	//}
 
-	GlobalUnlock(hgbl);
-	LRESULT ret = DialogBoxIndirect(NULL, (LPDLGTEMPLATE) hgbl, NULL, (DLGPROC) _sr_gui_message_callback);
-	GlobalFree(hgbl);
-	SR_GUI_FREE(titleW);
-	SR_GUI_FREE(messageW);
+	//dialog->dlgVer = 1;
+	//dialog->signature = 0xFFFF;
+	//dialog->style = DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION | DS_SHELLFONT;
+	//dialog->cDlgItems = 4;  // Number of controls
+	//dialog->x = 0;  dialog->y = 0;
+	//dialog->cx = MulDiv( 360, 4, w ); dialog->cy = MulDiv( 110, 8, h );
+	//dialog->menu = 0;
+	//dialog->windowClass = 0;
+	//// Oh boy. Move after the window class. 
+	//uintptr_t head = (uintptr_t) ( &( dialog->windowClass ) );
+	//head += sizeof( WORD );
+	//// Insert the string afterward, properly aligned.
+	//head = _sr_gui_insert_string( head, titleW );
 
-	if(ret != SR_GUI_VALIDATED || (_sr_gui_message_result == nullptr)){
-		return SR_GUI_CANCELLED;
-	}
+	//_sr_gui_dialog_template_tail* dialogEnd = (_sr_gui_dialog_template_tail*) ( head );
+	//dialogEnd->pointsize = 8;
+	//dialogEnd->weight = FW_NORMAL;
+	//dialogEnd->italic = FALSE;
+	//dialogEnd->charset = DEFAULT_CHARSET;
+	//// Move after the charset.
+	//head = (uintptr_t) ( &( dialogEnd->charset ) );
+	//head += sizeof( BYTE );
+	//// Insert the font fixed name afterward, properly aligned.
+	//head = _sr_gui_insert_string( head, fontW );
 
-	// Copy result back via static variable.
-	// Instead we should pass private pointer to callback in some way.
-	const size_t resLength = strlen(_sr_gui_message_result);
-	*result = (char*) SR_GUI_MALLOC(sizeof(char) * (resLength + 1));
-	if( result == nullptr ) {
-		return SR_GUI_CANCELLED;
-	}
-	memcpy(*result, _sr_gui_message_result, resLength);
-	(*result)[resLength] = '\0';
+	//// Move to the controls. 
+	//_sr_gui_control_infos controls[4];
+	//controls[0] = { okW, IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP, 0x0080,		170, 81, 83, 23 };
+	//controls[1] = { cancelW, IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 0x0080,	262, 81, 83, 23};
+	//controls[2] = { messageW, _SR_GUI_ID_MESSAGE, 0, 0x0082,				32, 17, 300, 30 };
+	//controls[3] = { defaultW, _SR_GUI_ID_TEXT, WS_TABSTOP, 0x0081,			32, 47, 300, 15 };
 
-	SR_GUI_FREE(_sr_gui_message_result);
-	_sr_gui_message_result = nullptr;
+	//for(size_t cid = 0; cid < 4; ++cid ){
+	//	// Each should be aligned on a dword.
+	//	const _sr_gui_control_infos& cinf = controls[cid];
+	//	head = _sr_gui_align_ptr_dword( head );
+	//	_sr_gui_control_template_head* control = (_sr_gui_control_template_head*) head;
+	//	control->x = MulDiv( cinf.x, 4, w );
+	//	control->y = MulDiv( cinf.y, 8, h );
+	//	control->cx = MulDiv( cinf.w, 4, w );
+	//	control->cy = MulDiv( cinf.h, 8, h );
+	//	control->id = cinf.id; // Standard ID.
+	//	control->style = WS_CHILD | WS_VISIBLE | cinf.style;
+	//	control->windowClass[0] = 0xFFFF;
+	//	control->windowClass[1] = cinf.type; // Button class
+	//	// Move after the windowClass.
+	//	head = (uintptr_t) ( control->windowClass );
+	//	head += 2 * sizeof( WORD );
+	//	head = _sr_gui_insert_string( head, cinf.txt );
+	//	// Then the tail.
+	//	_sr_gui_control_template_tail* controlEnd = (_sr_gui_control_template_tail*) ( head );
+	//	controlEnd->extraCount = 0;
+	//	head += sizeof( WORD );
+	//}
+
+	//GlobalUnlock(hgbl);
+	//LRESULT ret = DialogBoxIndirect(NULL, (LPDLGTEMPLATE) hgbl, NULL, (DLGPROC) _sr_gui_message_callback);
+	//GlobalFree(hgbl);
+	//SR_GUI_FREE(titleW);
+	//SR_GUI_FREE(messageW);
+
+	//if(ret != SR_GUI_VALIDATED || (_sr_gui_message_result == nullptr)){
+	//	return SR_GUI_CANCELLED;
+	//}
+
+	//// Copy result back via static variable.
+	//// Instead we should pass private pointer to callback in some way.
+	//const size_t resLength = strlen(_sr_gui_message_result);
+	//*result = (char*) SR_GUI_MALLOC(sizeof(char) * (resLength + 1));
+	//if( result == nullptr ) {
+	//	return SR_GUI_CANCELLED;
+	//}
+	//memcpy(*result, _sr_gui_message_result, resLength);
+	//(*result)[resLength] = '\0';
+
+	//SR_GUI_FREE(_sr_gui_message_result);
+	//_sr_gui_message_result = nullptr;
 	return SR_GUI_VALIDATED;
 }
 
