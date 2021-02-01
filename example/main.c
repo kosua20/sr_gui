@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #define MAX_STR_SIZE 1023
 
@@ -16,50 +15,51 @@ int main(int argc, char** argv){
 	// Create dummy window for messages etc.
 	createWindow(320, 240);
 
-	{
+	if( 0 ) {
 		sr_gui_show_notification("Notification title", "This is a notification message which is longer than the title.");
 	}
 
-	{
-		sr_gui_show_message("Message title", "This is a message text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_WARN);
+	if(0){
+		sr_gui_show_message( "Message title", "This is a message text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_INFO );
+		sr_gui_show_message( "Message title 2", "This is a message text which is longer than the title, 2.", SR_GUI_MESSAGE_LEVEL_ERROR );
 	}
 
-	{
+	if( 0 ) {
 		int res = sr_gui_ask_choice("Question title", "This is a question text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_WARN , "OK", "Cancel", "Nope");
 		printf("Choice was: %s\n", res == SR_GUI_BUTTON0 ? "OK" : (res == SR_GUI_BUTTON1 ? "Cancel" : "Nope"));
 	}
 
-	{
+	if( 1 ) {
 		char* content = "A default value";
 		int res = sr_gui_ask_string("String field title", "Please input a string here", &content);
 		if( res == SR_GUI_VALIDATED){
 			printf("String was: %s\n", content);
 		} else {
-			printf("String query cancelled.\n");
+			printf("String query canceled.\n");
 		}
 	}
 
-	{
+	if( 0 ) {
 		char* outPath = NULL;
 		int res = sr_gui_ask_save_file("Create file", "./", NULL, &outPath);
 		if( res == SR_GUI_VALIDATED){
 			printf("File path was: %s\n", outPath);
 		} else {
-			printf("File path query cancelled.\n");
+			printf("File path query canceled.\n");
 		}
 	}
 
-	{
+	if( 0 ) {
 		char* outPath = NULL;
 		int res = sr_gui_ask_directory("Select directory", "./", &outPath);
 		if( res == SR_GUI_VALIDATED){
 			printf("Directory path was: %s\n", outPath);
 		} else {
-			printf("Directory path query cancelled.\n");
+			printf("Directory path query canceled.\n");
 		}
 	}
 
-	{
+	if( 0 ) {
 		char** outPaths = NULL;
 		int outCount = 0;
 		int res = sr_gui_ask_load_files("Select paths", "./", NULL, &outPaths, &outCount);
@@ -69,18 +69,18 @@ int main(int argc, char** argv){
 				printf("* %s\n", outPaths[i]);
 			}
 		} else {
-			printf("Multi paths query cancelled.\n");
+			printf("Multi paths query canceled.\n");
 		}
 	}
 
-	{
+	if( 0 ) {
 		unsigned char col[3];
 		col[0] = 0; col[1] = 255; col[2] = 128;
 		int res = sr_gui_ask_color(col);
 		if( res == SR_GUI_VALIDATED){
 			printf("Color was: %d,%d,%d\n", (int)col[0], (int)col[1], (int)col[2]);
 		} else {
-			printf("Color query cancelled.\n");
+			printf("Color query canceled.\n");
 		}
 
 	}
