@@ -10,9 +10,22 @@
 #include <windows.h>
 #include <shobjidl.h>
 
+
+#include <wrl.h>
+#include <windows.ui.notifications.h>
+#include <NotificationActivationCallback.h>
+#include <appmodel.h>
+#include <wrl/wrappers/corewrappers.h>
+
+
 #pragma comment(linker,"\"/manifestdependency:type='win32' \
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
 processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
+using namespace ABI::Windows::UI::Notifications;
+using namespace Microsoft::WRL;
+using namespace Microsoft::WRL::Wrappers;
+using namespace ABI::Windows::Data::Xml::Dom;
 
 bool _sr_gui_init_COM() {
 	HRESULT res = CoInitializeEx( NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE );
@@ -20,6 +33,25 @@ bool _sr_gui_init_COM() {
 }
 
 // deinit will be CoUninitialize()
+
+class DECLSPEC_UUID( "93b5912e-ce27-4ffa-b238-ded3c780cabb" ) SRGUINotificationActivator WrlSealed WrlFinal
+	: public RuntimeClass<RuntimeClassFlags<ClassicCom>, INotificationActivationCallback>
+{
+public:
+	virtual HRESULT STDMETHODCALLTYPE Activate(
+		_In_ LPCWSTR appUserModelId,
+		_In_ LPCWSTR invokedArgs,
+		_In_reads_( dataCount ) const NOTIFICATION_USER_INPUT_DATA * data,
+		ULONG dataCount ) override
+	{
+		// TODO: Handle activation
+		printf( "AAAAACTIVATE.\n" );
+		return S_OK;
+	}
+};
+
+// Flag class as COM creatable
+CoCreatableClass( SRGUINotificationActivator );
 
 // Transfer output ownership to the caller.
 wchar_t* _sr_gui_widen_string(const char* str) {
@@ -56,8 +88,53 @@ void sr_gui_show_message(const char* title, const char* message, int level) {
 	SR_GUI_FREE( messageW );
 }
 
+#define SR_GUI_APP_ID_WINDOWS "com.sr.sr_gui"
+
 void sr_gui_show_notification(const char* title, const char* message) {
 	
+	
+	if( !_sr_gui_init_COM() ) {
+		return;
+	}
+
+	// Register ID.
+	WCHAR* appID = _sr_gui_widen_string( SR_GUI_APP_ID_WINDOWS );
+	// AUMI size is limited.
+	if( wcslen( appID ) > SCHAR_MAX ) {
+		return;
+	}
+	SetCurrentProcessExplicitAppUserModelID( appID );
+
+	// Create shortcut
+
+
+	
+
+	// Create the notifier.
+	IToastNotifier* notifier;
+	ComPtr<IToastNotificationManagerStatics> toastStatics;
+	HRESULT res = Windows::Foundation::GetActivationFactory( HStringReference( RuntimeClass_Windows_UI_Notifications_ToastNotificationManager ).Get(), &toastStatics );
+	if( FAILED( res ) ) {
+		// \todo Cleanup
+		return;
+	}
+	toastStatics->CreateToastNotifierWithId( HStringReference(appID ).Get(), &notifier );
+
+	// Create the notification template
+	WCHAR* templateStr = L"<toast><visual><binding template='ToastGeneric'><text>Hello world</text></binding></visual></toast>";
+	ComPtr<IXmlDocument> templateXml;
+	res = Windows::Foundation::ActivateInstance( HStringReference( RuntimeClass_Windows_Data_Xml_Dom_XmlDocument ).Get(), &templateXml );
+	ComPtr<IXmlDocumentIO> templateIO;
+	res = templateXml.As( &templateIO );
+	res = templateIO->LoadXml( HStringReference( templateStr ).Get() );
+	// Create the notification
+	ComPtr<IToastNotificationFactory> factory;
+	res = Windows::Foundation::GetActivationFactory( HStringReference( RuntimeClass_Windows_UI_Notifications_ToastNotification ).Get(), &factory );
+	IToastNotification* notification;
+	res = factory->CreateToastNotification( templateXml.Get(), &notification );
+	res = notifier->Show( notification );
+
+	SR_GUI_FREE( appID );
 }
 
 bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
@@ -96,7 +173,7 @@ bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
 
 	size_t cid = 0;
 
-	for(size_t fid = 0; fid < count-1; ++fid){
+	for(size_t fid = 0; fid < size_t(int(count)-1); ++fid){
 		// After the wildcard.
 		size_t bid = 2;
 		while(cid < extsLen && exts[cid] != ','){
@@ -118,9 +195,9 @@ bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
 	filterList[count-1].pszName = L"*.*";
 	dialog->SetFileTypes( count, filterList );
 
-	for(size_t fid = 0; fid < count-1; ++fid){
-		SR_GUI_FREE((void*)filterList[fid].pszSpec);
-		SR_GUI_FREE((void*)filterList[fid].pszName);
+	for(size_t fid = 0; fid < size_t(int(count)-1); ++fid){
+		SR_GUI_FREE( (void*) ( filterList[fid].pszSpec) );
+		SR_GUI_FREE( (void*) ( filterList[fid].pszName) );
 	}
 	SR_GUI_FREE( filterList );
 	return true;
@@ -414,205 +491,67 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	return button;
 }
 
-// Not thread safe, might be passed as data somewhere.
-char* _sr_gui_message_result = nullptr;
-
-#define _SR_GUI_ID_MESSAGE   150
-#define _SR_GUI_ID_TEXT   200
-
-BOOL CALLBACK _sr_gui_message_callback2(HWND hwndDlg, UINT message, WPARAM wParam,  LPARAM lParam){
-	switch(message)
-	{
-		/*case WM_CTLCOLOR:
-			break;*/
-		case WM_COMMAND:
-			switch( LOWORD( wParam ) )
-			{
-				case IDOK:
-				{
-					if( _sr_gui_message_result != nullptr ) {
-						SR_GUI_FREE( _sr_gui_message_result );
-					}
-
-					wchar_t stringRes[SR_GUI_MAX_STR_SIZE];
-					if( GetDlgItemText( hwndDlg, _SR_GUI_ID_TEXT, stringRes, SR_GUI_MAX_STR_SIZE ) ){
-						_sr_gui_message_result = _sr_gui_narrow_string(stringRes);
-
-					} else {
-						_sr_gui_message_result = (char*)SR_GUI_MALLOC( 1 * sizeof( char ) );
-						if( _sr_gui_message_result == nullptr ) {
-							EndDialog( hwndDlg, SR_GUI_CANCELLED );
-							return TRUE;
-						}
-						_sr_gui_message_result[0] = '\0';
-					}
-
-					EndDialog( hwndDlg, SR_GUI_VALIDATED );
-					return TRUE;
-				}
-				case IDCANCEL:
-					EndDialog( hwndDlg, SR_GUI_CANCELLED );
-					return TRUE;
-				default:
-					break;
-			}
-		default:
-			break;
-	}
-	return FALSE;
-}
-
-uintptr_t _sr_gui_align_ptr_dword(uintptr_t ptr)
-{
-	uintptr_t rem = ptr % sizeof(DWORD);
-	return rem == 0 ? ptr : (ptr + sizeof(DWORD) - rem);
-}
-
-uintptr_t _sr_gui_align_ptr_word(uintptr_t ptr)
-{
-	uintptr_t rem = ptr % sizeof(WORD);
-	return rem == 0 ? ptr : (ptr + sizeof(WORD) - rem);
-}
-
-uintptr_t _sr_gui_insert_string( uintptr_t head, const WCHAR* str ) {
-	// Strings have to be WORD aligned.
-	head = _sr_gui_align_ptr_word( head );
-	// Copy string in place.
-	const size_t strSizeByte = ( wcslen( str ) + 1 ) * sizeof( WCHAR );
-	WCHAR* strBegin = (WCHAR*) ( head );
-	memcpy( strBegin, str, strSizeByte );
-	// Move after the string.
-	return head + strSizeByte;
-}
-
-#pragma pack(push, 1)
-typedef struct {
-	WORD      dlgVer;
-	WORD      signature;
-	DWORD     helpID;
-	DWORD     exStyle;
-	DWORD     style;
-	WORD      cDlgItems;
-	short     x;
-	short     y;
-	short     cx;
-	short     cy;
-	WORD	menu;
-	WORD	windowClass;
-	// Here goes the title of variable length.
-	// WCHAR	title[titleLen]
-	// Then the font info (see below)
-	// _sr_gui_dialog_template_tail fontInfos.
-} _sr_gui_dialog_template_head;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-typedef struct {
-	WORD      pointsize;
-	WORD      weight;
-	BYTE      italic;
-	BYTE      charset;
-	// Here goes the typename of variable length. 
-	//WCHAR     typeface[typefaceLen];
-} _sr_gui_dialog_template_tail;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-typedef struct
-{
-	DWORD     helpID;
-	DWORD     exStyle;
-	DWORD     style;
-	short     x;
-	short     y;
-	short     cx;
-	short     cy;
-	DWORD     id;
-	WORD windowClass[2];
-	// Here goes the name of the button of variable length. 
-	// WCHAR title[titleLength];
-	// Then the end of the struct.
-	// _sr_gui_control_template_tail end;
-} _sr_gui_control_template_head;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-typedef struct {
-	WORD	extraCount;
-} _sr_gui_control_template_tail;
-#pragma pack(pop)
-
-
-struct _sr_gui_control_infos
-{
-	const WCHAR* txt;
-	DWORD id;
-	DWORD style;
-	WORD type;
-	unsigned short x;
-	unsigned short y;
-	unsigned short w;
-	unsigned short h;
-};
-
-void _sr_gui_get_font_scaling(const WCHAR* name, int size, int* w, int* h ) {
-	static const WCHAR letters[] = { 'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q', 'r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H', 'I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z', 0 };
-	// Default values.
-	*w = 4; *h = 8;
-
-	HDC context = GetDC( 0 );
-	const int fontHeight = -MulDiv( size, GetDeviceCaps( context, LOGPIXELSY ), 72 );
-	HFONT font = CreateFont( fontHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, 0, 0, PROOF_QUALITY, FF_DONTCARE, name );
-	if( font == nullptr ) {
-		return;
-	}
-	SelectObject( context, font );
-	
-	SIZE outSize;
-	if( GetTextExtentPointW( context, letters, 52, &outSize ) ) {
-		*h = outSize.cy;
-		*w = ( outSize.cx / 26 + 1 ) / 2;
-	}
-	DeleteObject(font);
-}
-
-
 struct _sr_gui_message_callback_data
 {
 	HWND textField;
+	HFONT font;
 	char** content;
 };
 
 HRESULT _sr_gui_message_callback( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, LONG_PTR lpRefData ) {
 	if( msg == TDN_CREATED ) {
-		
+		// Retrieve window size.
+		int w = 366;
+		int h = 186;
+		RECT winSize;
+		if( GetWindowRect( hwnd, &winSize ) ) {
+			w = abs(winSize.right - winSize.left);
+			h = abs(winSize.bottom - winSize.top);
+		}
 		_sr_gui_message_callback_data* data = (_sr_gui_message_callback_data*) ( lpRefData );
-		data->textField = CreateWindow( L"EDIT", NULL,
-										WS_BORDER | WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT |
-										ES_MULTILINE | ES_AUTOVSCROLL,
-								  10, 30, 300, 15,
-								  hwnd, (HMENU) 5, NULL, NULL );
+		// Add text field.
+		data->textField = CreateWindow( L"EDIT", NULL, WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_LEFT | WS_TABSTOP, 10, h - 110, w - 40, 18,  hwnd, (HMENU) 5, NULL, NULL );
+		// Field default value and font.
+		const WCHAR* dfltName = L"Default string";
+		SendMessage( data->textField, WM_SETTEXT, NULL, (LPARAM) dfltName );
+		SendMessage( data->textField, EM_SETSEL, 0, -1 );
+
+		HDC context = GetDC( hwnd );
+		INT fontHeight = MulDiv( 10, GetDeviceCaps( context, LOGPIXELSY ), 72 );
+		data->font = CreateFont( fontHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, TEXT( "MS Shell Dlg" ) );
+		SendMessage( data->textField, WM_SETFONT, (WPARAM) ( data->font ), TRUE );
+		// Make sure this is focused.
+		SetFocus( data->textField );
+	}
+	else if( msg == TDN_DESTROYED ) {
+		// Copy back the string result in our data.
+		_sr_gui_message_callback_data* data = (_sr_gui_message_callback_data*) ( lpRefData );
+		WCHAR res[SR_GUI_MAX_STR_SIZE]; 
+		res[0] = '\0';
+		SendMessage( data->textField, WM_GETTEXT, SR_GUI_MAX_STR_SIZE, (LPARAM)res );
+		*(data->content) = _sr_gui_narrow_string( res );
 	}
 	return S_OK;
 }
 
 int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 
-#define _SR_GUI_CONTROL_COUNT 4
-
-	// There is no easy way to have such a prompt on Windows it seems.
-
-	// Initialize all strings.
-	WCHAR* titleW = _sr_gui_widen_string( title );
-	WCHAR* messageW = _sr_gui_widen_string( message );
-
-	/*PCWSTR icon = TD_INFORMATION_ICON;
-	if( level == SR_GUI_MESSAGE_LEVEL_ERROR ) {
-		icon = TD_ERROR_ICON;
+	// Message string.
+	WCHAR* messageWTemp = _sr_gui_widen_string( message );
+	const size_t messageSize = strlen( message );
+	WCHAR* messageW = (WCHAR *) SR_GUI_MALLOC( (messageSize + 2 + 1) * sizeof( WCHAR ) );
+	if( messageW == NULL ) {
+		SR_GUI_FREE( messageWTemp );
+		return SR_GUI_CANCELLED;
 	}
-	else if( level == SR_GUI_MESSAGE_LEVEL_WARN ) {
-		icon = TD_WARNING_ICON;
-	}*/
+	// Append a line return to make room for the text field that we will add afterwards.
+	memcpy( messageW, messageWTemp, messageSize * sizeof( WCHAR ) );
+	messageW[messageSize] = TEXT( '\n' );
+	messageW[messageSize + 1] = TEXT( '\n' );
+	messageW[messageSize + 2] = '\0';
+	SR_GUI_FREE( messageWTemp );
+
+	WCHAR* titleW = _sr_gui_widen_string( title );
 
 	_sr_gui_message_callback_data callData;
 	callData.content = result;
@@ -621,127 +560,28 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 	dialog.cbSize = sizeof( TASKDIALOGCONFIG );
 	dialog.hInstance = NULL;
 	dialog.dwCommonButtons = TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON;
-	//dialog.pszMainIcon = icon;
 	dialog.pszMainInstruction = titleW;
 	dialog.pszContent = messageW;
 	dialog.nDefaultButton = IDOK;
 	dialog.lpCallbackData = (LONG_PTR)(&callData);
 	dialog.pfCallback = _sr_gui_message_callback;
+	
 	int button = -1;
 	HRESULT res = TaskDialogIndirect( &dialog, &button, NULL, NULL );
-	//const WCHAR* fontW = L"MS Shell Dlg 2";
-	//const WCHAR* okW = L"OK";
-	//const WCHAR* cancelW = L"Cancel";
-	//const WCHAR* defaultW = L"Default value";
+	SR_GUI_FREE( messageW );
+	SR_GUI_FREE( titleW );
+	DeleteObject( callData.font );
+	DeleteObject( callData.textField );
 
-	//// Size of each struct in memory (dialog + n * control).
-	//size_t maxSize = sizeof( _sr_gui_dialog_template_head ) + sizeof( _sr_gui_dialog_template_tail );
-	//maxSize += _SR_GUI_CONTROL_COUNT * ( sizeof( _sr_gui_control_template_head ) + sizeof( _sr_gui_control_template_tail ) );
-	//// Padding for the strings (at most).
-	//maxSize += sizeof( WORD ) * ( 2 + _SR_GUI_CONTROL_COUNT * 1 );
-	//// Padding for the control structs (at most).
-	//maxSize += sizeof( DWORD ) * ( _SR_GUI_CONTROL_COUNT );
-	//// Size of all strings.
-	//maxSize += (wcslen( titleW ) + wcslen(messageW) + wcslen(okW) + wcslen( fontW ) + wcslen( cancelW ) + wcslen( defaultW )) * sizeof(WCHAR);
-	//// Extra padding.
-	//maxSize += 1024;
+	// Result status.
+	if( FAILED( res ) || button != SR_GUI_BUTTON0 ) {
+		if( *( callData.content ) != NULL ) {
+			SR_GUI_FREE( *( callData.content ) );
+		}
+		return SR_GUI_CANCELLED;
+	}
 
-	//HGLOBAL hgbl = GlobalAlloc( GMEM_ZEROINIT, maxSize );
-	//if( !hgbl ) {
-	//	SR_GUI_FREE( messageW );
-	//	SR_GUI_FREE( titleW );
-	//	return SR_GUI_CANCELLED;
-	//}
-
-	//// Retrieve pixel scaling.
-	//int w, h;
-	//_sr_gui_get_font_scaling( fontW, 8, &w, &h );
-
-	//// Define a dialog box.
-	//_sr_gui_dialog_template_head* dialog = (_sr_gui_dialog_template_head*) GlobalLock( hgbl );
-	//if( dialog == nullptr ) {
-	//	SR_GUI_FREE( messageW );
-	//	SR_GUI_FREE( titleW );
-	//	return SR_GUI_CANCELLED;
-	//}
-
-	//dialog->dlgVer = 1;
-	//dialog->signature = 0xFFFF;
-	//dialog->style = DS_CENTER | DS_MODALFRAME | WS_POPUPWINDOW | WS_CAPTION | DS_SHELLFONT;
-	//dialog->cDlgItems = 4;  // Number of controls
-	//dialog->x = 0;  dialog->y = 0;
-	//dialog->cx = MulDiv( 360, 4, w ); dialog->cy = MulDiv( 110, 8, h );
-	//dialog->menu = 0;
-	//dialog->windowClass = 0;
-	//// Oh boy. Move after the window class. 
-	//uintptr_t head = (uintptr_t) ( &( dialog->windowClass ) );
-	//head += sizeof( WORD );
-	//// Insert the string afterward, properly aligned.
-	//head = _sr_gui_insert_string( head, titleW );
-
-	//_sr_gui_dialog_template_tail* dialogEnd = (_sr_gui_dialog_template_tail*) ( head );
-	//dialogEnd->pointsize = 8;
-	//dialogEnd->weight = FW_NORMAL;
-	//dialogEnd->italic = FALSE;
-	//dialogEnd->charset = DEFAULT_CHARSET;
-	//// Move after the charset.
-	//head = (uintptr_t) ( &( dialogEnd->charset ) );
-	//head += sizeof( BYTE );
-	//// Insert the font fixed name afterward, properly aligned.
-	//head = _sr_gui_insert_string( head, fontW );
-
-	//// Move to the controls. 
-	//_sr_gui_control_infos controls[4];
-	//controls[0] = { okW, IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP, 0x0080,		170, 81, 83, 23 };
-	//controls[1] = { cancelW, IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 0x0080,	262, 81, 83, 23};
-	//controls[2] = { messageW, _SR_GUI_ID_MESSAGE, 0, 0x0082,				32, 17, 300, 30 };
-	//controls[3] = { defaultW, _SR_GUI_ID_TEXT, WS_TABSTOP, 0x0081,			32, 47, 300, 15 };
-
-	//for(size_t cid = 0; cid < 4; ++cid ){
-	//	// Each should be aligned on a dword.
-	//	const _sr_gui_control_infos& cinf = controls[cid];
-	//	head = _sr_gui_align_ptr_dword( head );
-	//	_sr_gui_control_template_head* control = (_sr_gui_control_template_head*) head;
-	//	control->x = MulDiv( cinf.x, 4, w );
-	//	control->y = MulDiv( cinf.y, 8, h );
-	//	control->cx = MulDiv( cinf.w, 4, w );
-	//	control->cy = MulDiv( cinf.h, 8, h );
-	//	control->id = cinf.id; // Standard ID.
-	//	control->style = WS_CHILD | WS_VISIBLE | cinf.style;
-	//	control->windowClass[0] = 0xFFFF;
-	//	control->windowClass[1] = cinf.type; // Button class
-	//	// Move after the windowClass.
-	//	head = (uintptr_t) ( control->windowClass );
-	//	head += 2 * sizeof( WORD );
-	//	head = _sr_gui_insert_string( head, cinf.txt );
-	//	// Then the tail.
-	//	_sr_gui_control_template_tail* controlEnd = (_sr_gui_control_template_tail*) ( head );
-	//	controlEnd->extraCount = 0;
-	//	head += sizeof( WORD );
-	//}
-
-	//GlobalUnlock(hgbl);
-	//LRESULT ret = DialogBoxIndirect(NULL, (LPDLGTEMPLATE) hgbl, NULL, (DLGPROC) _sr_gui_message_callback);
-	//GlobalFree(hgbl);
-	//SR_GUI_FREE(titleW);
-	//SR_GUI_FREE(messageW);
-
-	//if(ret != SR_GUI_VALIDATED || (_sr_gui_message_result == nullptr)){
-	//	return SR_GUI_CANCELLED;
-	//}
-
-	//// Copy result back via static variable.
-	//// Instead we should pass private pointer to callback in some way.
-	//const size_t resLength = strlen(_sr_gui_message_result);
-	//*result = (char*) SR_GUI_MALLOC(sizeof(char) * (resLength + 1));
-	//if( result == nullptr ) {
-	//	return SR_GUI_CANCELLED;
-	//}
-	//memcpy(*result, _sr_gui_message_result, resLength);
-	//(*result)[resLength] = '\0';
-
-	//SR_GUI_FREE(_sr_gui_message_result);
-	//_sr_gui_message_result = nullptr;
+	// The string pointer has been stored in the callback data and is already up to date.
 	return SR_GUI_VALIDATED;
 }
 
