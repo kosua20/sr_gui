@@ -105,10 +105,91 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	}
 	SetCurrentProcessExplicitAppUserModelID( appID );
 
+	// Get the EXE path
+	wchar_t exePath[MAX_PATH];
+	DWORD charWritten = ::GetModuleFileName(nullptr, exePath, ARRAYSIZE(exePath));
+	HRESULT res = (charWritten > 0 ? S_OK : HRESULT_FROM_WIN32(::GetLastError()));
+
+	// Register the COM server
+	// Turn the GUID into a string
+	OLECHAR* clsidOlechar;
+	StringFromCLSID(__uuidof(SRGUINotificationActivator), &clsidOlechar);
+	std::wstring clsidStr(clsidOlechar);
+	::CoTaskMemFree(clsidOlechar);
+
+	// Create the subkey
+	std::wstring subKey = LR"(SOFTWARE\Classes\CLSID\)" + clsidStr + LR"(\LocalServer32)";
+
+	// Include custom launch args on the exe
+	std::wstring exePathStr(exePath);
+	exePathStr = L"\"" + exePathStr + L"\" -sr_gui_notification";
+
+	// We don't need to worry about overflow here as ::GetModuleFileName won't
+	// return anything bigger than the max file system path (much fewer than max of DWORD).
+	DWORD dataSize = static_cast<DWORD>((exePathStr.length() + 1) * sizeof(WCHAR));
+
+	// Register the EXE for the COM server
+	res = HRESULT_FROM_WIN32(::RegSetKeyValue( HKEY_CURRENT_USER, subKey.c_str(), nullptr, REG_SZ, reinterpret_cast<const BYTE*>(exePathStr.c_str()), dataSize));
+
+	// Taken from microsoft doc:
+	// Module<OutOfProc> needs a callback registered before it can be used.
+	// Since we don't care about when it shuts down, we'll pass an empty lambda here.
+	Module<OutOfProc>::Create([] {});
+	Module<OutOfProc>::GetModule().IncrementObjectCount();
+	res = (Module<OutOfProc>::GetModule().RegisterObjects());
+
 	// Create shortcut
+	{
+		wchar_t shortcutPath[MAX_PATH];
+		DWORD charWritten = GetEnvironmentVariable(L"APPDATA", shortcutPath, MAX_PATH);
+		HRESULT hr = charWritten > 0 ? S_OK : E_INVALIDARG;
 
+		if (SUCCEEDED(hr)){
+			errno_t concatError = wcscat_s(shortcutPath, ARRAYSIZE(shortcutPath), L"\\Microsoft\\Windows\\Start Menu\\Programs\\SR_GUI App.lnk");
+			hr = concatError == 0 ? S_OK : E_INVALIDARG;
+			if (SUCCEEDED(hr)){
+				DWORD attributes = GetFileAttributes(shortcutPath);
+				if (!(attributes < 0xFFFFFFF)) { // file doesn't exist
+					wchar_t exePath[MAX_PATH];
+				   DWORD charWritten = GetModuleFileNameEx(GetCurrentProcess(), nullptr, exePath, ARRAYSIZE(exePath));
+				   HRESULT hr = charWritten > 0 ? S_OK : E_FAIL;
+				   if (SUCCEEDED(hr))  {
+					   ComPtr<IShellLink> shellLink;
+					   hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&shellLink));
+					   if (SUCCEEDED(hr)) {
+						   hr = shellLink->SetPath(exePath);
+						   if (SUCCEEDED(hr)) {
+							   hr = shellLink->SetArguments(L"");
+							   if (SUCCEEDED(hr))  {
+								   ComPtr<IPropertyStore> propertyStore;
+								   hr = shellLink.As(&propertyStore);
+								   if (SUCCEEDED(hr)) {
+									   PROPVARIANT appIdPropVar;
+									   hr = InitPropVariantFromString(appID, &appIdPropVar);
+									   if (SUCCEEDED(hr)) {
+										   hr = propertyStore->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
+										   if (SUCCEEDED(hr)) {
+											   hr = propertyStore->Commit();
+											   if (SUCCEEDED(hr))  {
+												   ComPtr<IPersistFile> persistFile;
+												   hr = shellLink.As(&persistFile);
+												   if (SUCCEEDED(hr)) {
+													   hr = persistFile->Save(shortcutPath, TRUE);
+												   }
+											   }
+										   }
+										   PropVariantClear(&appIdPropVar);
+									   }
+								   }
+							   }
+						   }
+					   }
+				   }
+				}
+			}
+		}
+	}
 
-	
 
 	// Create the notifier.
 	IToastNotifier* notifier;
