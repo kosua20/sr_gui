@@ -18,7 +18,7 @@
 #define SR_GUI_MAX_STR_SIZE 1024
 #endif
 
-#define SR_GUI_APP_ID L"com.sr.sr_gui"
-#define SR_GUI_APP_NAME L"SR GUI App"
+#define SR_GUI_APP_ID "com.sr.sr_gui"
+#define SR_GUI_APP_NAME "SR GUI App"
 
 #endif
