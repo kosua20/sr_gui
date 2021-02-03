@@ -29,8 +29,8 @@ using namespace Microsoft::WRL;
 using namespace Microsoft::WRL::Wrappers;
 using namespace ABI::Windows::Data::Xml::Dom;
 
-#define SR_GUI_APP_ID_WINDOWS L"com.sr.sr_gui"
-#define SR_GUI_APP_SHORTCUT L"SR GUI App"
+#define SR_GUI_WINDOWS_APP_ID L"com.sr.sr_gui"
+#define SR_GUI_WINDOWS_APP_NAME L"SR GUI App"
 
 bool _sr_gui_init_COM() {
 	HRESULT res = CoInitializeEx( NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE );
@@ -77,7 +77,7 @@ void sr_gui_show_message(const char* title, const char* message, int level) {
 void sr_gui_show_notification(const char* title, const char* message) {
 	
 	// AppID size is limited.
-	if( wcslen( SR_GUI_APP_ID_WINDOWS ) > SCHAR_MAX ) {
+	if( wcslen( SR_GUI_WINDOWS_APP_ID ) > SCHAR_MAX ) {
 		return;
 	}
 
@@ -86,94 +86,90 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	}
 
 	// Create shortcut
-	HRESULT res;
-	{
-		wchar_t shortcutPath[MAX_PATH];
-		DWORD charWritten = GetEnvironmentVariable(L"APPDATA", shortcutPath, MAX_PATH);
-		HRESULT hr = charWritten > 0 ? S_OK : E_INVALIDARG;
-		if( FAILED( hr ) ) {
-		// \todo Cleanup
-			return;
-		}
-		errno_t concatError = wcscat_s(shortcutPath, ARRAYSIZE(shortcutPath), L"\\Microsoft\\Windows\\Start Menu\\Programs\\" SR_GUI_APP_SHORTCUT ".lnk");
-		hr = concatError == 0 ? S_OK : E_INVALIDARG;
-		if( FAILED( hr ) ) {
-		// \todo Cleanup
-			return;
-		}
-		DWORD attributes = GetFileAttributes(shortcutPath);
-		if (!(attributes < 0xFFFFFFF)) { // file doesn't exist
-			wchar_t exePath[MAX_PATH];
-			DWORD charWritten = GetModuleFileNameEx(GetCurrentProcess(), nullptr, exePath, ARRAYSIZE(exePath));
-			hr = charWritten > 0 ? S_OK : E_FAIL;
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			ComPtr<IShellLink> shellLink;
-			hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&shellLink));
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			hr = shellLink->SetPath(exePath);
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			hr = shellLink->SetArguments(L"");
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			ComPtr<IPropertyStore> propertyStore;
-			 hr = shellLink.As(&propertyStore);
-			 if( FAILED( hr ) ) {
-		// \todo Cleanup
-				 return;
-			 }
-			PROPVARIANT appIdPropVar;
-			hr = InitPropVariantFromString( SR_GUI_APP_ID_WINDOWS, &appIdPropVar);
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			hr = propertyStore->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			hr = propertyStore->Commit();
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			ComPtr<IPersistFile> persistFile;
-			hr = shellLink.As(&persistFile);
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			hr = persistFile->Save(shortcutPath, TRUE);
-			if( FAILED( hr ) ) {
-		// \todo Cleanup
-				return;
-			}
-			PropVariantClear(&appIdPropVar);
-		}
-	}
-
-	SetCurrentProcessExplicitAppUserModelID( SR_GUI_APP_ID_WINDOWS );
-
-	// Create the notifier.
-	IToastNotifier* notifier;
-	ComPtr<IToastNotificationManagerStatics> toastStatics;
-	res = Windows::Foundation::GetActivationFactory( HStringReference( RuntimeClass_Windows_UI_Notifications_ToastNotificationManager ).Get(), &toastStatics );
-	if( FAILED( res ) ) {
-		// \todo Cleanup
+	wchar_t shortcutPath[MAX_PATH];
+	DWORD charWritten = GetEnvironmentVariable(L"APPDATA", shortcutPath, MAX_PATH);
+	if( charWritten <= 0 ) {
 		return;
 	}
-	toastStatics->CreateToastNotifierWithId( HStringReference( SR_GUI_APP_ID_WINDOWS ).Get(), &notifier );
+
+	errno_t concatError = wcscat_s(shortcutPath, ARRAYSIZE(shortcutPath), L"\\Microsoft\\Windows\\Start Menu\\Programs\\" SR_GUI_WINDOWS_APP_NAME ".lnk");
+	if( concatError != 0 ) ) {
+		return;
+	}
+	// Check that the shortcut doesn't already exist.
+	DWORD attributes = GetFileAttributes(shortcutPath);
+	if(!(attributes < 0xFFFFFFF)) {
+		// Get app path.
+		wchar_t exePath[MAX_PATH];
+		charWritten = GetModuleFileNameEx(GetCurrentProcess(), nullptr, exePath, ARRAYSIZE(exePath));
+		if( charWritten <= 0 ) {
+			return;
+		}
+		// Create the shortcut link.
+		ComPtr<IShellLink> shellLink;
+		HRESULT res = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&shellLink));
+		if( FAILED( res ) ) {
+			return;
+		}
+		res = shellLink->SetPath(exePath);
+		if( FAILED( res ) ) {
+			shellLink->Release();
+			return;
+		}
+		res = shellLink->SetArguments(L"");
+		if( FAILED( res ) ) {
+			shellLink->Release();
+			return;
+		}
+		ComPtr<IPropertyStore> propertyStore;
+		res = shellLink.As(&propertyStore);
+		if( FAILED( res ) ) {
+			shellLink->Release();
+			return;
+		}
+		PROPVARIANT appIdPropVar;
+		res = InitPropVariantFromString( SR_GUI_WINDOWS_APP_ID, &appIdPropVar);
+		if( FAILED( res ) ) {
+			shellLink->Release();
+			return;
+		}
+		res = propertyStore->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
+		if( FAILED( res ) ) {
+			PropVariantClear(&appIdPropVar);
+			shellLink->Release();
+			return;
+		}
+		res = propertyStore->Commit();
+		PropVariantClear(&appIdPropVar);
+		if( FAILED( res ) ) {
+			shellLink->Release();
+			return;
+		}
+		ComPtr<IPersistFile> persistFile;
+		res = shellLink.As(&persistFile);
+		if( FAILED( res ) ) {
+			shellLink->Release();
+			return;
+		}
+		res = persistFile->Save(shortcutPath, TRUE);
+		shellLink->Release();
+		if( FAILED( res ) ) {
+			return;
+		}
+	}
+
+	// Register App ID.
+	SetCurrentProcessExplicitAppUserModelID( SR_GUI_WINDOWS_APP_ID );
+
+	// Create the notification manager.
+	ComPtr<IToastNotificationManagerStatics> toastStatics;
+	HRESULT res = Windows::Foundation::GetActivationFactory( HStringReference( RuntimeClass_Windows_UI_Notifications_ToastNotificationManager ).Get(), &toastStatics );
+	if( FAILED( res ) ) {
+		return;
+	}
+
+	ComPtr<IToastNotifier> notifier;
+	toastStatics->CreateToastNotifierWithId( HStringReference( SR_GUI_WINDOWS_APP_ID ).Get(), &notifier );
 
 	// Create the notification template
 	WCHAR* templateBase = L"<toast><visual><binding template='ToastGeneric'><text>%s</text><text>%s</text></binding></visual></toast>";
@@ -182,42 +178,68 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	const size_t templateTotalSize = wcslen( templateBase ) + wcslen( titleW ) + wcslen( messageW ) + 1;
 	WCHAR* templateStr = (WCHAR*)SR_GUI_MALLOC( templateTotalSize * sizeof( WCHAR ) );
 	if( templateStr == NULL ) {
-		// \todo Cleanup
+		toastStatics->Release();
+		notifier->Release();
+		SR_GUI_FREE(titleW);
+		SR_GUI_FREE(messageW);
 		return;
 	}
+	// Generate template string.
 	wsprintf( templateStr, templateBase, titleW, messageW );
+	SR_GUI_FREE(titleW);
+	SR_GUI_FREE(messageW);
 
+	// Create XML document.
 	ComPtr<IXmlDocument> templateXml;
 	res = Windows::Foundation::ActivateInstance( HStringReference( RuntimeClass_Windows_Data_Xml_Dom_XmlDocument ).Get(), &templateXml );
 	if( FAILED( res ) ) {
-		// \todo Cleanup
+		toastStatics->Release();
+		notifier->Release();
+		SR_GUI_FREE(templateStr);
 		return;
 	}
 	ComPtr<IXmlDocumentIO> templateIO;
 	res = templateXml.As( &templateIO );
 	if( FAILED( res ) ) {
-		// \todo Cleanup
+		templateXml->Release();
+		toastStatics->Release();
+		notifier->Release();
+		SR_GUI_FREE(templateStr);
 		return;
 	}
 	res = templateIO->LoadXml( HStringReference( templateStr ).Get() );
+	SR_GUI_FREE(templateStr);
 	if( FAILED( res ) ) {
-		// \todo Cleanup
+		templateXml->Release();
+		toastStatics->Release();
+		notifier->Release();
 		return;
 	}
 	// Create the notification
 	ComPtr<IToastNotificationFactory> factory;
 	res = Windows::Foundation::GetActivationFactory( HStringReference( RuntimeClass_Windows_UI_Notifications_ToastNotification ).Get(), &factory );
 	if( FAILED( res ) ) {
-		// \todo Cleanup
+		templateXml->Release();
+		toastStatics->Release();
+		notifier->Release();
 		return;
 	}
 	IToastNotification* notification;
 	res = factory->CreateToastNotification( templateXml.Get(), &notification );
 	if( FAILED( res ) ) {
-		// \todo Cleanup
+		factory->Release();
+		templateXml->Release();
+		toastStatics->Release();
+		notifier->Release();
 		return;
 	}
 	res = notifier->Show( notification );
+
+	factory->Release();
+	notification->Release();
+	templateXml->Release();
+	toastStatics->Release();
+	notifier->Release();
 }
 
 bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){

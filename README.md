@@ -26,3 +26,8 @@ void sr_show_notification(const char* title, const char* message)
 Color picker
 int sr_ask_color(const char* title, const unsigned char default[3], unsigned char result[3])
 
+## Dependencies
+
+"User32", "Comdlg32", "Comctl32", "runtimeobject"
+On Windows notifications will work after the first run.
+
