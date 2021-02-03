@@ -7,6 +7,14 @@
 #include <math.h>
 #include <string.h>
 
+void sr_gui_init(){
+	// Nothing.
+}
+
+void sr_gui_cleanup(){
+	// Nothing.
+}
+
 void _sr_gui_absorb_line_from_cin(){
 	int c = 0;
 	while(c != '\n' && c != EOF){

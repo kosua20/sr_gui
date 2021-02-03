@@ -6,6 +6,14 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
 
+void sr_gui_init(){
+	//Nothing.
+}
+
+void sr_gui_cleanup(){
+	//Nothing.
+}
+
 void sr_gui_show_message(const char* title, const char* message, int level){
 	NSAlert* alert = [[NSAlert alloc] init];
 	alert.messageText = [[NSString alloc] initWithUTF8String: title];

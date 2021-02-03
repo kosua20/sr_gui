@@ -1,5 +1,3 @@
-
-
 #if defined(__cplusplus)
 
 #include "sr_gui.h"
@@ -29,15 +27,14 @@ using namespace Microsoft::WRL;
 using namespace Microsoft::WRL::Wrappers;
 using namespace ABI::Windows::Data::Xml::Dom;
 
-#define SR_GUI_WINDOWS_APP_ID L"com.sr.sr_gui"
-#define SR_GUI_WINDOWS_APP_NAME L"SR GUI App"
-
-bool _sr_gui_init_COM() {
+void sr_gui_init(){
 	HRESULT res = CoInitializeEx( NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE );
-	return ( res == RPC_E_CHANGED_MODE || SUCCEEDED( res ) );
+	(void)res;
 }
 
-// deinit will be CoUninitialize()
+void sr_gui_cleanup(){
+	CoUninitialize();
+}
 
 // Transfer output ownership to the caller.
 wchar_t* _sr_gui_widen_string(const char* str) {
@@ -77,11 +74,10 @@ void sr_gui_show_message(const char* title, const char* message, int level) {
 void sr_gui_show_notification(const char* title, const char* message) {
 	
 	// AppID size is limited.
-	if( wcslen( SR_GUI_WINDOWS_APP_ID ) > SCHAR_MAX ) {
-		return;
-	}
+	WCHAR* appIDW = _sr_gui_widen_string(SR_GUI_APP_ID);
 
-	if( !_sr_gui_init_COM() ) {
+	if( wcslen( appIDW ) > SCHAR_MAX ) {
+		SR_GUI_FREE(appIDW);
 		return;
 	}
 
@@ -89,11 +85,15 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	wchar_t shortcutPath[MAX_PATH];
 	DWORD charWritten = GetEnvironmentVariable(L"APPDATA", shortcutPath, MAX_PATH);
 	if( charWritten <= 0 ) {
+		SR_GUI_FREE(appIDW);
 		return;
 	}
+	// \todo Cleanup
+#define LTEXT(M) L##M
 
-	errno_t concatError = wcscat_s(shortcutPath, ARRAYSIZE(shortcutPath), L"\\Microsoft\\Windows\\Start Menu\\Programs\\" SR_GUI_WINDOWS_APP_NAME ".lnk");
+	errno_t concatError = wcscat_s(shortcutPath, ARRAYSIZE(shortcutPath), L"\\Microsoft\\Windows\\Start Menu\\Programs\\" LTEXT(SR_GUI_APP_NAME) ".lnk");
 	if( concatError != 0 ) ) {
+		SR_GUI_FREE(appIDW);
 		return;
 	}
 	// Check that the shortcut doesn't already exist.
@@ -103,38 +103,45 @@ void sr_gui_show_notification(const char* title, const char* message) {
 		wchar_t exePath[MAX_PATH];
 		charWritten = GetModuleFileNameEx(GetCurrentProcess(), nullptr, exePath, ARRAYSIZE(exePath));
 		if( charWritten <= 0 ) {
+			SR_GUI_FREE(appIDW);
 			return;
 		}
 		// Create the shortcut link.
 		ComPtr<IShellLink> shellLink;
 		HRESULT res = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&shellLink));
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			return;
 		}
 		res = shellLink->SetPath(exePath);
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		res = shellLink->SetArguments(L"");
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		ComPtr<IPropertyStore> propertyStore;
 		res = shellLink.As(&propertyStore);
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		PROPVARIANT appIdPropVar;
-		res = InitPropVariantFromString( SR_GUI_WINDOWS_APP_ID, &appIdPropVar);
+		res = InitPropVariantFromString( appIDW, &appIdPropVar);
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		res = propertyStore->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			PropVariantClear(&appIdPropVar);
 			shellLink->Release();
 			return;
@@ -142,24 +149,28 @@ void sr_gui_show_notification(const char* title, const char* message) {
 		res = propertyStore->Commit();
 		PropVariantClear(&appIdPropVar);
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		ComPtr<IPersistFile> persistFile;
 		res = shellLink.As(&persistFile);
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		res = persistFile->Save(shortcutPath, TRUE);
 		shellLink->Release();
 		if( FAILED( res ) ) {
+			SR_GUI_FREE(appIDW);
 			return;
 		}
 	}
 
 	// Register App ID.
-	SetCurrentProcessExplicitAppUserModelID( SR_GUI_WINDOWS_APP_ID );
+	SetCurrentProcessExplicitAppUserModelID( appIDW );
+	SR_GUI_FREE(appIDW);
 
 	// Create the notification manager.
 	ComPtr<IToastNotificationManagerStatics> toastStatics;
@@ -169,7 +180,7 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	}
 
 	ComPtr<IToastNotifier> notifier;
-	toastStatics->CreateToastNotifierWithId( HStringReference( SR_GUI_WINDOWS_APP_ID ).Get(), &notifier );
+	toastStatics->CreateToastNotifierWithId( HStringReference( appID ).Get(), &notifier );
 
 	// Create the notification template
 	WCHAR* templateBase = L"<toast><visual><binding template='ToastGeneric'><text>%s</text><text>%s</text></binding></visual></toast>";
@@ -335,9 +346,6 @@ bool _sr_gui_add_default_path(const char* path, IFileDialog* dialog){
 int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath) {
 	*outPath = nullptr;
 
-	if(!_sr_gui_init_COM()){
-		return SR_GUI_CANCELLED;
-	}
 	IFileOpenDialog *dialog = NULL;
 	HRESULT res = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
 	if(!SUCCEEDED(res)){
@@ -401,9 +409,6 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	*outCount = 0;
 	*outPaths = NULL;
 
-	if(!_sr_gui_init_COM()){
-		return SR_GUI_CANCELLED;
-	}
 	IFileOpenDialog*dialog = NULL;
 	HRESULT res = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
 	if(!SUCCEEDED(res)){
@@ -495,9 +500,7 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
 	*outPath = NULL;
-	if(!_sr_gui_init_COM()){
-		return SR_GUI_CANCELLED;
-	}
+
 	IFileSaveDialog *dialog = NULL;
 	HRESULT res = CoCreateInstance(CLSID_FileSaveDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
 	if(!SUCCEEDED(res)){

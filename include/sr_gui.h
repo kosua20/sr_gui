@@ -15,6 +15,10 @@ extern "C" {
 #define SR_GUI_BUTTON1 (SR_GUI_BUTTON0+1)
 #define SR_GUI_BUTTON2 (SR_GUI_BUTTON0+2)
 
+void sr_gui_init();
+
+void sr_gui_cleanup();
+
 void sr_gui_show_message(const char* title, const char* message, int level);
 
 void sr_gui_show_notification(const char* title, const char* message);
