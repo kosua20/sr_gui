@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #define MAX_STR_SIZE 1023
 
 int main(int argc, char** argv){
@@ -15,8 +19,11 @@ int main(int argc, char** argv){
 	// Create dummy window for messages etc.
 	createWindow(320, 240);
 
-	if( 0 ) {
+	if( 1 ) {
 		sr_gui_show_notification("Notification title", "This is a notification message which is longer than the title.");
+		printf( "Sleeping.\n" );
+		Sleep( 4000 );
+		printf( "Done.\n" );
 	}
 
 	if(0){
@@ -29,7 +36,7 @@ int main(int argc, char** argv){
 		printf("Choice was: %s\n", res == SR_GUI_BUTTON0 ? "OK" : (res == SR_GUI_BUTTON1 ? "Cancel" : "Nope"));
 	}
 
-	if( 1 ) {
+	if( 0 ) {
 		char* content = "A default value";
 		int res = sr_gui_ask_string("String field title", "Please input a string here", &content);
 		if( res == SR_GUI_VALIDATED){
