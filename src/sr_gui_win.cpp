@@ -29,29 +29,15 @@ using namespace Microsoft::WRL;
 using namespace Microsoft::WRL::Wrappers;
 using namespace ABI::Windows::Data::Xml::Dom;
 
+#define SR_GUI_APP_ID_WINDOWS L"com.sr.sr_gui"
+#define SR_GUI_APP_SHORTCUT L"SR GUI App"
+
 bool _sr_gui_init_COM() {
 	HRESULT res = CoInitializeEx( NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE );
 	return ( res == RPC_E_CHANGED_MODE || SUCCEEDED( res ) );
 }
 
 // deinit will be CoUninitialize()
-
-class DECLSPEC_UUID( "93b5912e-ce27-4ffa-b238-ded3c780cabb" ) SRGUINotificationActivator WrlSealed WrlFinal
-	: public RuntimeClass<RuntimeClassFlags<ClassicCom>, INotificationActivationCallback>
-{
-public:
-	virtual HRESULT STDMETHODCALLTYPE Activate(
-		_In_ LPCWSTR appUserModelId,
-		_In_ LPCWSTR invokedArgs,
-		_In_reads_( dataCount ) const NOTIFICATION_USER_INPUT_DATA * data,
-		ULONG dataCount ) override
-	{
-		return S_OK;
-	}
-};
-
-// Flag class as COM creatable
-CoCreatableClass( SRGUINotificationActivator );
 
 // Transfer output ownership to the caller.
 wchar_t* _sr_gui_widen_string(const char* str) {
@@ -88,68 +74,19 @@ void sr_gui_show_message(const char* title, const char* message, int level) {
 	SR_GUI_FREE( messageW );
 }
 
-#define SR_GUI_APP_ID_WINDOWS L"com.sr.sr_gui"
-#define SR_GUI_APP_SHORTCUT L"SR GUI App"
-
 void sr_gui_show_notification(const char* title, const char* message) {
 	
-	HRESULT res;
+	// AppID size is limited.
+	if( wcslen( SR_GUI_APP_ID_WINDOWS ) > SCHAR_MAX ) {
+		return;
+	}
+
 	if( !_sr_gui_init_COM() ) {
 		return;
 	}
 
-	// Register the COM server
-	// Turn the GUID into a string
-	//OLECHAR* clsidOlechar;
-	// res = StringFromCLSID(__uuidof(SRGUINotificationActivator), &clsidOlechar);
-	//if( FAILED( res ) ) {
-	//	// \todo Cleanup
-	//	return;
-	//}
-	//std::wstring clsidStr(clsidOlechar);
-	//::CoTaskMemFree(clsidOlechar);
-
-	//// Create the subkey
-	//std::wstring subKey = LR"(SOFTWARE\Classes\CLSID\)" + clsidStr + LR"(\LocalServer32)";
-
-	// Get the EXE path
-	//wchar_t exePath[MAX_PATH];
-	//DWORD charWritten = ::GetModuleFileName( nullptr, exePath, ARRAYSIZE( exePath ) );
-	// res = ( charWritten > 0 ? S_OK : HRESULT_FROM_WIN32( ::GetLastError() ) );
-	//if( FAILED( res ) ) {
-	//	// \todo Cleanup
-	//	return;
-	//}
-
-	// Include custom launch args on the exe
-	//std::wstring exePathStr(exePath);
-	//exePathStr = L"\"" + exePathStr + L"\" -sr_gui_notification";
-
-	// We don't need to worry about overflow here as ::GetModuleFileName won't
-	// return anything bigger than the max file system path (much fewer than max of DWORD).
-	//DWORD dataSize = static_cast<DWORD>((exePathStr.length() + 1) * sizeof(WCHAR));
-
-	// Register the EXE for the COM server
-	//res = HRESULT_FROM_WIN32(::RegSetKeyValue( HKEY_CURRENT_USER, subKey.c_str(), nullptr, REG_SZ, reinterpret_cast<const BYTE*>(exePathStr.c_str()), dataSize));
-	//if( FAILED( res ) ) {
-	//	// \todo Cleanup
-	//	return;
-	//}
-
-	//// Register our objects.
-	//Module<OutOfProc>::Create([] {});
-	//Module<OutOfProc>::GetModule().IncrementObjectCount();
-	//res = (Module<OutOfProc>::GetModule().RegisterObjects());
-	//if( FAILED( res ) ) {
-	//	// \todo Cleanup
-	//	return;
-	//}
-	// AUMI size is limited.
-	if( wcslen( SR_GUI_APP_ID_WINDOWS ) > SCHAR_MAX ) {
-		 // \todo Cleanup
-		return;
-	}
 	// Create shortcut
+	HRESULT res;
 	{
 		wchar_t shortcutPath[MAX_PATH];
 		DWORD charWritten = GetEnvironmentVariable(L"APPDATA", shortcutPath, MAX_PATH);
@@ -226,7 +163,6 @@ void sr_gui_show_notification(const char* title, const char* message) {
 		}
 	}
 
-	
 	SetCurrentProcessExplicitAppUserModelID( SR_GUI_APP_ID_WINDOWS );
 
 	// Create the notifier.
@@ -240,7 +176,17 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	toastStatics->CreateToastNotifierWithId( HStringReference( SR_GUI_APP_ID_WINDOWS ).Get(), &notifier );
 
 	// Create the notification template
-	WCHAR* templateStr = L"<toast><visual><binding template='ToastGeneric'><text>Hello world</text></binding></visual></toast>";
+	WCHAR* templateBase = L"<toast><visual><binding template='ToastGeneric'><text>%s</text><text>%s</text></binding></visual></toast>";
+	WCHAR* titleW = _sr_gui_widen_string( title );
+	WCHAR* messageW = _sr_gui_widen_string( message );
+	const size_t templateTotalSize = wcslen( templateBase ) + wcslen( titleW ) + wcslen( messageW ) + 1;
+	WCHAR* templateStr = (WCHAR*)SR_GUI_MALLOC( templateTotalSize * sizeof( WCHAR ) );
+	if( templateStr == NULL ) {
+		// \todo Cleanup
+		return;
+	}
+	wsprintf( templateStr, templateBase, titleW, messageW );
+
 	ComPtr<IXmlDocument> templateXml;
 	res = Windows::Foundation::ActivateInstance( HStringReference( RuntimeClass_Windows_Data_Xml_Dom_XmlDocument ).Get(), &templateXml );
 	if( FAILED( res ) ) {
@@ -272,8 +218,6 @@ void sr_gui_show_notification(const char* title, const char* message) {
 		return;
 	}
 	res = notifier->Show( notification );
-
-
 }
 
 bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
