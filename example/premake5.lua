@@ -1,3 +1,9 @@
+-- On Linux we have to query the dependencies for libsecret
+if os.ishost("linux") then
+	listing, code = os.outputof("pkg-config --libs libnotify gtk+-3.0")
+	liballLibs = string.explode(string.gsub(listing, "-l", ""), " ")
+end
+
 -- Projects
 function CommonExampleSetup()
 	language("C")
@@ -38,6 +44,8 @@ project("Example")
 	CommonExampleSetup()
 	files({ "main.c" })
 	links({"sr_gui"})
+	filter("system:linux")
+		links(liballLibs)
 
 project("ExampleCLI")
 	CommonExampleSetup()
