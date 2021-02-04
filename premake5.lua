@@ -1,3 +1,7 @@
+-- On Linux we have to query the dependencies for libsecret
+if os.ishost("linux") then
+	libFlags, code = os.outputof("pkg-config --cflags libnotify gtk+-3.0")
+end
 
 workspace("sr_gui")
 
@@ -32,7 +36,7 @@ project("sr_gui")
 
 	includedirs({"include/"})
 	-- common files
-	files({"include/sr_gui.h", "src/sr_gui_internal.h", "src/sr_gui.c"})
+	files({"include/sr_gui.h", "src/sr_gui_internal.h"})
 	
 	-- system build filters
 	filter("system:windows")
@@ -41,18 +45,20 @@ project("sr_gui")
 
 	filter("system:macosx")
 		language("C")
-	--	files({"src/sr_gui_cli.c"})
 		files({"src/sr_gui_mac.m"})
 
 	filter({"system:linux"})
 		language("C")
+		buildoptions(libFlags)
 		files({"src/sr_gui_lin.c"})
+
    
 	filter({})
 
 project("sr_gui_cli")
 	kind("StaticLib")
 	systemversion("latest")
+	language("C")
 	
 	filter("toolset:not msc*")
 		buildoptions({ "-Wall", "-Wextra" })
@@ -61,11 +67,8 @@ project("sr_gui_cli")
 	filter({})
 
 	includedirs({"include/"})
-	-- common files
-	files({"include/sr_gui.h", "src/sr_gui_internal.h", "src/sr_gui.c"})
 	
-	language("C")
-	files({"src/sr_gui_cli.c"})
+	files({"include/sr_gui.h", "src/sr_gui_internal.h", "src/sr_gui_cli.c"})
 
 include("example/premake5.lua")
 

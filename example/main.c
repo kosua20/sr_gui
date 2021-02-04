@@ -19,24 +19,27 @@ int main(int argc, char** argv){
 	// Create dummy window for messages etc.
 	createWindow(320, 240);
 
+	sr_gui_init();
+
 	if( 1 ) {
 		sr_gui_show_notification("Notification title", "This is a notification message which is longer than the title.");
-		printf( "Sleeping.\n" );
-		Sleep( 4000 );
-		printf( "Done.\n" );
 	}
 
-	if(0){
+	if( 1 ){
 		sr_gui_show_message( "Message title", "This is a message text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_INFO );
 		sr_gui_show_message( "Message title 2", "This is a message text which is longer than the title, 2.", SR_GUI_MESSAGE_LEVEL_ERROR );
 	}
 
-	if( 0 ) {
-		int res = sr_gui_ask_choice("Question title", "This is a question text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_WARN , "OK", "Cancel", "Nope");
-		printf("Choice was: %s\n", res == SR_GUI_BUTTON0 ? "OK" : (res == SR_GUI_BUTTON1 ? "Cancel" : "Nope"));
+	if( 1 ) {
+		int res = sr_gui_ask_choice("Question title", "This is  a question text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_WARN , "OK", "Cancel", "Nope");
+		if(res == SR_GUI_CANCELLED){
+			printf("Choice query canceled\n");
+		} else {
+			printf("Choice was: %s\n", res == SR_GUI_BUTTON0 ? "OK" : (res == SR_GUI_BUTTON1 ? "Cancel" : "Nope"));
+		}
 	}
 
-	if( 0 ) {
+	if( 1 ) {
 		char* content = "A default value";
 		int res = sr_gui_ask_string("String field title", "Please input a string here", &content);
 		if( res == SR_GUI_VALIDATED){
@@ -46,9 +49,9 @@ int main(int argc, char** argv){
 		}
 	}
 
-	if( 0 ) {
+	if( 1 ) {
 		char* outPath = NULL;
-		int res = sr_gui_ask_save_file("Create file", "./", NULL, &outPath);
+		int res = sr_gui_ask_save_file("Create file", "~", "jpg,png", &outPath);
 		if( res == SR_GUI_VALIDATED){
 			printf("File path was: %s\n", outPath);
 		} else {
@@ -56,7 +59,7 @@ int main(int argc, char** argv){
 		}
 	}
 
-	if( 0 ) {
+	if( 1 ) {
 		char* outPath = NULL;
 		int res = sr_gui_ask_directory("Select directory", "./", &outPath);
 		if( res == SR_GUI_VALIDATED){
@@ -66,7 +69,7 @@ int main(int argc, char** argv){
 		}
 	}
 
-	if( 0 ) {
+	if( 1 ) {
 		char** outPaths = NULL;
 		int outCount = 0;
 		int res = sr_gui_ask_load_files("Select paths", "./", NULL, &outPaths, &outCount);
@@ -80,7 +83,7 @@ int main(int argc, char** argv){
 		}
 	}
 
-	if( 0 ) {
+	if( 1 ) {
 		unsigned char col[3];
 		col[0] = 0; col[1] = 255; col[2] = 128;
 		int res = sr_gui_ask_color(col);
@@ -91,6 +94,8 @@ int main(int argc, char** argv){
 		}
 
 	}
+
+	sr_gui_cleanup();
 
 	return 0;
 }
