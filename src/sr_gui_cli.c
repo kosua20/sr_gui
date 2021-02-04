@@ -106,7 +106,7 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 
 	fprintf(stdout, "--- File(s) selection --- %s\n", title);
 	if(exts && strlen(exts) > 0){
-		fprintf(stdout, "Allowed extensions %s\n", exts);
+		fprintf(stdout, "Allowed extensions: %s\n", exts);
 	}
 	fprintf(stdout, "Type the absolute path to a file on disk below and press enter. You can then input another path, or press enter again to finish. Submit an empty line to cancel\n");
 
@@ -152,7 +152,7 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 
 	fprintf(stdout, "--- Output selection --- %s\n", title);
 	if(exts && strlen(exts) > 0){
-		fprintf(stdout, "Allowed extensions %s\n", exts);
+		fprintf(stdout, "Allowed extensions: %s\n", exts);
 	}
 	fprintf(stdout, "Type the absolute path to an output file below and press enter to validate, or submit an empty to cancel.\n");
 
