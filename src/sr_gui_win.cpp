@@ -72,12 +72,12 @@ void sr_gui_show_message(const char* title, const char* message, int level) {
 }
 
 void sr_gui_show_notification(const char* title, const char* message) {
-	
-	// AppID size is limited.
-	WCHAR* appIDW = _sr_gui_widen_string(SR_GUI_APP_ID);
+	// Generate wide cahr constant string from char one.
+#define LTEXTC(M) L##M
+#define LTEXT(M) LTEXTC( M )
 
-	if( wcslen( appIDW ) > SCHAR_MAX ) {
-		SR_GUI_FREE(appIDW);
+	// AppID size is limited.
+	if( wcslen( LTEXT( SR_GUI_APP_ID ) ) > SCHAR_MAX ) {
 		return;
 	}
 
@@ -85,15 +85,10 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	wchar_t shortcutPath[MAX_PATH];
 	DWORD charWritten = GetEnvironmentVariable(L"APPDATA", shortcutPath, MAX_PATH);
 	if( charWritten <= 0 ) {
-		SR_GUI_FREE(appIDW);
 		return;
 	}
-	// \todo Cleanup
-#define LTEXT(M) L##M
-
 	errno_t concatError = wcscat_s(shortcutPath, ARRAYSIZE(shortcutPath), L"\\Microsoft\\Windows\\Start Menu\\Programs\\" LTEXT(SR_GUI_APP_NAME) ".lnk");
-	if( concatError != 0 ) ) {
-		SR_GUI_FREE(appIDW);
+	if( concatError != 0 ) {
 		return;
 	}
 	// Check that the shortcut doesn't already exist.
@@ -103,45 +98,38 @@ void sr_gui_show_notification(const char* title, const char* message) {
 		wchar_t exePath[MAX_PATH];
 		charWritten = GetModuleFileNameEx(GetCurrentProcess(), nullptr, exePath, ARRAYSIZE(exePath));
 		if( charWritten <= 0 ) {
-			SR_GUI_FREE(appIDW);
 			return;
 		}
 		// Create the shortcut link.
 		ComPtr<IShellLink> shellLink;
 		HRESULT res = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&shellLink));
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			return;
 		}
 		res = shellLink->SetPath(exePath);
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		res = shellLink->SetArguments(L"");
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		ComPtr<IPropertyStore> propertyStore;
 		res = shellLink.As(&propertyStore);
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		PROPVARIANT appIdPropVar;
-		res = InitPropVariantFromString( appIDW, &appIdPropVar);
+		res = InitPropVariantFromString( LTEXT( SR_GUI_APP_ID ), &appIdPropVar);
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		res = propertyStore->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			PropVariantClear(&appIdPropVar);
 			shellLink->Release();
 			return;
@@ -149,28 +137,24 @@ void sr_gui_show_notification(const char* title, const char* message) {
 		res = propertyStore->Commit();
 		PropVariantClear(&appIdPropVar);
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		ComPtr<IPersistFile> persistFile;
 		res = shellLink.As(&persistFile);
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			shellLink->Release();
 			return;
 		}
 		res = persistFile->Save(shortcutPath, TRUE);
 		shellLink->Release();
 		if( FAILED( res ) ) {
-			SR_GUI_FREE(appIDW);
 			return;
 		}
 	}
 
 	// Register App ID.
-	SetCurrentProcessExplicitAppUserModelID( appIDW );
-	SR_GUI_FREE(appIDW);
+	SetCurrentProcessExplicitAppUserModelID( LTEXT( SR_GUI_APP_ID ) );
 
 	// Create the notification manager.
 	ComPtr<IToastNotificationManagerStatics> toastStatics;
@@ -180,25 +164,9 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	}
 
 	ComPtr<IToastNotifier> notifier;
-	toastStatics->CreateToastNotifierWithId( HStringReference( appID ).Get(), &notifier );
+	toastStatics->CreateToastNotifierWithId( HStringReference( LTEXT( SR_GUI_APP_ID ) ).Get(), &notifier );
 
-	// Create the notification template
-	WCHAR* templateBase = L"<toast><visual><binding template='ToastGeneric'><text>%s</text><text>%s</text></binding></visual></toast>";
-	WCHAR* titleW = _sr_gui_widen_string( title );
-	WCHAR* messageW = _sr_gui_widen_string( message );
-	const size_t templateTotalSize = wcslen( templateBase ) + wcslen( titleW ) + wcslen( messageW ) + 1;
-	WCHAR* templateStr = (WCHAR*)SR_GUI_MALLOC( templateTotalSize * sizeof( WCHAR ) );
-	if( templateStr == NULL ) {
-		toastStatics->Release();
-		notifier->Release();
-		SR_GUI_FREE(titleW);
-		SR_GUI_FREE(messageW);
-		return;
-	}
-	// Generate template string.
-	wsprintf( templateStr, templateBase, titleW, messageW );
-	SR_GUI_FREE(titleW);
-	SR_GUI_FREE(messageW);
+	
 
 	// Create XML document.
 	ComPtr<IXmlDocument> templateXml;
@@ -206,7 +174,6 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	if( FAILED( res ) ) {
 		toastStatics->Release();
 		notifier->Release();
-		SR_GUI_FREE(templateStr);
 		return;
 	}
 	ComPtr<IXmlDocumentIO> templateIO;
@@ -214,16 +181,32 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	if( FAILED( res ) ) {
 		templateXml->Release();
 		toastStatics->Release();
-		notifier->Release();
-		SR_GUI_FREE(templateStr);
 		return;
 	}
+
+	// Create the notification template
+	WCHAR* templateBase = L"<toast><visual><binding template='ToastGeneric'><text>%s</text><text>%s</text></binding></visual></toast>";
+	WCHAR* titleW = _sr_gui_widen_string( title );
+	WCHAR* messageW = _sr_gui_widen_string( message );
+	const size_t templateTotalSize = wcslen( templateBase ) + wcslen( titleW ) + wcslen( messageW ) + 1;
+	WCHAR* templateStr = (WCHAR*) SR_GUI_MALLOC( templateTotalSize * sizeof( WCHAR ) );
+	if( templateStr == NULL ) {
+		toastStatics->Release();
+		notifier->Release();
+		SR_GUI_FREE( titleW );
+		SR_GUI_FREE( messageW );
+		return;
+	}
+	// Generate template string.
+	wsprintf( templateStr, templateBase, titleW, messageW );
+	SR_GUI_FREE( titleW );
+	SR_GUI_FREE( messageW );
+
 	res = templateIO->LoadXml( HStringReference( templateStr ).Get() );
 	SR_GUI_FREE(templateStr);
 	if( FAILED( res ) ) {
 		templateXml->Release();
 		toastStatics->Release();
-		notifier->Release();
 		return;
 	}
 	// Create the notification
@@ -232,7 +215,6 @@ void sr_gui_show_notification(const char* title, const char* message) {
 	if( FAILED( res ) ) {
 		templateXml->Release();
 		toastStatics->Release();
-		notifier->Release();
 		return;
 	}
 	IToastNotification* notification;
@@ -241,16 +223,11 @@ void sr_gui_show_notification(const char* title, const char* message) {
 		factory->Release();
 		templateXml->Release();
 		toastStatics->Release();
-		notifier->Release();
 		return;
 	}
 	res = notifier->Show( notification );
 
 	factory->Release();
-	notification->Release();
-	templateXml->Release();
-	toastStatics->Release();
-	notifier->Release();
 }
 
 bool _sr_gui_add_filter_extensions(const char* exts, IFileDialog* dialog){
@@ -339,7 +316,6 @@ bool _sr_gui_add_default_path(const char* path, IFileDialog* dialog){
 		return false;
 	}
 	dialog->SetFolder( pathShell);
-	pathShell->Release();
 	return true;
 }
 
@@ -682,10 +658,11 @@ int sr_gui_ask_string( const char* title, const char* message, char** result ) {
 	DeleteObject( callData.textField );
 
 	// Result status.
-	if( FAILED( res ) || button != SR_GUI_BUTTON0 ) {
+	if( FAILED( res ) || button != IDOK ) {
 		if( *( callData.content ) != NULL ) {
 			SR_GUI_FREE( *( callData.content ) );
 		}
+		*( callData.content ) = NULL;
 		return SR_GUI_CANCELLED;
 	}
 
