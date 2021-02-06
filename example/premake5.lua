@@ -26,7 +26,7 @@ function CommonExampleSetup()
 
 	-- Libraries for each platform.
 	filter("system:macosx")
-		links({"OpenGL.framework", "Cocoa.framework", "IOKit.framework", "CoreVideo.framework", "AppKit.framework", "AVFoundation.framework", "CoreMedia.framework", "Accelerate.framework" })
+		links({"OpenGL.framework", "Cocoa.framework", "IOKit.framework", "CoreVideo.framework", "AppKit.framework"})
 
 	filter("system:windows")
 		links({"opengl32", "User32", "Comdlg32", "Comctl32", "runtimeobject"})

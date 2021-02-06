@@ -8,12 +8,6 @@
 
 #include <math.h>
 
-void _sr_gui_flush_gtk_events() {
-	while(gtk_events_pending()) {
-		gtk_main_iteration();
-	}
-}
-
 void sr_gui_init() {
 	notify_init(SR_GUI_APP_NAME);
 }
