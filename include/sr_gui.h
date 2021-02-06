@@ -12,8 +12,8 @@ extern "C" {
 #define SR_GUI_VALIDATED 0
 #define SR_GUI_CANCELLED 1
 #define SR_GUI_BUTTON0 1000
-#define SR_GUI_BUTTON1 (SR_GUI_BUTTON0+1)
-#define SR_GUI_BUTTON2 (SR_GUI_BUTTON0+2)
+#define SR_GUI_BUTTON1 (SR_GUI_BUTTON0 + 1)
+#define SR_GUI_BUTTON2 (SR_GUI_BUTTON0 + 2)
 
 void sr_gui_init();
 
@@ -34,7 +34,7 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 int sr_gui_ask_string(const char* title, const char* message, char** result);
 
 int sr_gui_ask_color(unsigned char color[3]);
-	
+
 #ifdef __cplusplus
 }
 #endif

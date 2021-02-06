@@ -8,29 +8,29 @@
 
 #include <math.h>
 
-void _sr_gui_flush_gtk_events(){
-	while (gtk_events_pending()){
+void _sr_gui_flush_gtk_events() {
+	while(gtk_events_pending()) {
 		gtk_main_iteration();
 	}
 }
 
-void sr_gui_init(){
+void sr_gui_init() {
 	notify_init(SR_GUI_APP_NAME);
 }
 
-void sr_gui_cleanup(){
+void sr_gui_cleanup() {
 	notify_uninit();
 }
 
-void sr_gui_show_message(const char* title, const char* message, int level){
-	if(!gtk_init_check(NULL, NULL)){
-	 	return;
+void sr_gui_show_message(const char* title, const char* message, int level) {
+	if(!gtk_init_check(NULL, NULL)) {
+		return;
 	}
-	
+
 	GtkMessageType levelGtk = GTK_MESSAGE_INFO;
-	if(level == SR_GUI_MESSAGE_LEVEL_ERROR){
+	if(level == SR_GUI_MESSAGE_LEVEL_ERROR) {
 		levelGtk = GTK_MESSAGE_ERROR;
-	} else if(level == SR_GUI_MESSAGE_LEVEL_WARN){
+	} else if(level == SR_GUI_MESSAGE_LEVEL_WARN) {
 		levelGtk = GTK_MESSAGE_WARNING;
 	}
 
@@ -42,18 +42,18 @@ void sr_gui_show_message(const char* title, const char* message, int level){
 	gtk_widget_destroy(dialog);
 }
 
-void sr_gui_show_notification(const char* title, const char* message){
+void sr_gui_show_notification(const char* title, const char* message) {
 	NotifyNotification* notif = notify_notification_new(title, message, NULL);
 	notify_notification_set_timeout(notif, NOTIFY_EXPIRES_DEFAULT);
 	notify_notification_set_urgency(notif, NOTIFY_URGENCY_NORMAL);
-	
+
 	gboolean res = notify_notification_show(notif, NULL);
 	(void)res;
 }
 
-int _sr_gui_add_filter_extensions(const char* exts, GtkFileChooser* dialog){
+int _sr_gui_add_filter_extensions(const char* exts, GtkFileChooser* dialog) {
 
-	if(!exts || strlen(exts) == 0){
+	if(!exts || strlen(exts) == 0) {
 		GtkFileFilter* globfilter = gtk_file_filter_new();
 		gtk_file_filter_add_pattern(globfilter, "*");
 		gtk_file_filter_set_name(globfilter, "Any file");
@@ -64,29 +64,29 @@ int _sr_gui_add_filter_extensions(const char* exts, GtkFileChooser* dialog){
 	size_t extsLen = strlen(exts);
 	// Count extensions.
 	int count = 1;
-	for(size_t cid = 0; cid < extsLen; ++cid){
-		if(exts[cid] == ','){
+	for(size_t cid = 0; cid < extsLen; ++cid) {
+		if(exts[cid] == ',') {
 			++count;
 		}
 	}
 	// Add wildcard at the end.
 	++count;
-	
+
 	char extBuffer[SR_GUI_MAX_STR_SIZE];
 	extBuffer[0] = '*';
 	extBuffer[1] = '.';
 
 	size_t cid = 0;
-	for(size_t fid = 0; fid < (size_t)((int)(count)-1); ++fid){
+	for(size_t fid = 0; fid < (size_t)((int)(count)-1); ++fid) {
 		// After the wildcard.
 		size_t bid = 2;
-		while(cid < extsLen && exts[cid] != ','){
+		while(cid < extsLen && exts[cid] != ',') {
 			extBuffer[bid] = exts[cid];
 			++bid;
 			++cid;
 		}
 		extBuffer[bid] = '\0';
-		
+
 		GtkFileFilter* filter = gtk_file_filter_new();
 		gtk_file_filter_add_pattern(filter, extBuffer);
 		gtk_file_filter_set_name(filter, &extBuffer[2]);
@@ -94,7 +94,7 @@ int _sr_gui_add_filter_extensions(const char* exts, GtkFileChooser* dialog){
 
 		// Skip comma.
 		++cid;
-		if(cid >= extsLen){
+		if(cid >= extsLen) {
 			break;
 		}
 	}
@@ -106,84 +106,83 @@ int _sr_gui_add_filter_extensions(const char* exts, GtkFileChooser* dialog){
 	return 1;
 }
 
-int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath){
+int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath) {
 	*outPath = NULL;
-	if(!gtk_init_check(NULL, NULL)){
+	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
 
 	GtkFileChooserNative* pickerNative = gtk_file_chooser_native_new(title, NULL, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER, NULL, NULL);
-	GtkFileChooser* picker = GTK_FILE_CHOOSER(pickerNative);
+	GtkFileChooser* picker			   = GTK_FILE_CHOOSER(pickerNative);
 	gtk_file_chooser_set_create_folders(picker, TRUE);
 	gtk_file_chooser_set_current_folder(picker, startDir);
 
 	int res = gtk_native_dialog_run(GTK_NATIVE_DIALOG(pickerNative));
-	if(res != GTK_RESPONSE_ACCEPT){
+	if(res != GTK_RESPONSE_ACCEPT) {
 		g_object_unref(pickerNative);
 		return SR_GUI_CANCELLED;
 	}
-    
-    char* filename = gtk_file_chooser_get_filename(picker);
-    const size_t fileLen = strlen(filename);
-    *outPath = SR_GUI_MALLOC((fileLen + 1) * sizeof(char));
-    if(*outPath == NULL){
-    	g_free(filename);
+
+	char* filename		 = gtk_file_chooser_get_filename(picker);
+	const size_t fileLen = strlen(filename);
+	*outPath			 = SR_GUI_MALLOC((fileLen + 1) * sizeof(char));
+	if(*outPath == NULL) {
+		g_free(filename);
 		g_object_unref(pickerNative);
-    	return SR_GUI_CANCELLED;
+		return SR_GUI_CANCELLED;
 	}
 	SR_GUI_MEMCPY(*outPath, filename, fileLen * sizeof(char));
 	(*outPath)[fileLen] = '\0';
-    g_free(filename);
+	g_free(filename);
 	g_object_unref(pickerNative);
-    return SR_GUI_VALIDATED;	
+	return SR_GUI_VALIDATED;
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount){
+int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount) {
 	*outCount = 0;
 	*outPaths = NULL;
-	if(!gtk_init_check(NULL, NULL)){
+	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
 
 	GtkFileChooserNative* pickerNative = gtk_file_chooser_native_new(title, NULL, GTK_FILE_CHOOSER_ACTION_OPEN, NULL, NULL);
-	GtkFileChooser* picker = GTK_FILE_CHOOSER(pickerNative);
+	GtkFileChooser* picker			   = GTK_FILE_CHOOSER(pickerNative);
 	gtk_file_chooser_set_current_folder(picker, startDir);
 	gtk_file_chooser_set_select_multiple(picker, TRUE);
-	
-	if(_sr_gui_add_filter_extensions(exts, picker) != 1){
+
+	if(_sr_gui_add_filter_extensions(exts, picker) != 1) {
 		g_object_unref(pickerNative);
 		return SR_GUI_CANCELLED;
 	}
 
 	int res = gtk_native_dialog_run(GTK_NATIVE_DIALOG(pickerNative));
-	if(res != GTK_RESPONSE_ACCEPT){
+	if(res != GTK_RESPONSE_ACCEPT) {
 		g_object_unref(pickerNative);
 		return SR_GUI_CANCELLED;
 	}
-    
-    GSList* filenames = gtk_file_chooser_get_filenames(picker);
-    const uint itemsCount = g_slist_length(filenames);
-    
 
-    if( itemsCount > 0){
+	GSList* filenames	  = gtk_file_chooser_get_filenames(picker);
+	const uint itemsCount = g_slist_length(filenames);
+
+	if(itemsCount > 0) {
 		*outPaths = (char**)SR_GUI_MALLOC(sizeof(char*) * itemsCount);
-		if( *outPaths == NULL ) {
+		if(*outPaths == NULL) {
 			g_object_unref(pickerNative);
 			g_slist_free_full(filenames, g_free);
 			return SR_GUI_CANCELLED;
 		}
 		GSList* head = filenames;
-		for(uint i = 0; i < itemsCount; ++i){
+		for(uint i = 0; i < itemsCount; ++i) {
 			char* path = (char*)(head->data);
 			// Move to the next.
 			head = g_slist_next(head);
-			if( path == NULL ) {
+			if(path == NULL) {
 				continue;
 			}
-			const size_t pathLen = strlen(path);
-			(*outPaths)[*outCount] = (char*)SR_GUI_MALLOC((pathLen+1) * sizeof(char));
-			if((*outPaths)[*outCount] == NULL){
+			const size_t pathLen   = strlen(path);
+			(*outPaths)[*outCount] = (char*)SR_GUI_MALLOC((pathLen + 1) * sizeof(char));
+			if((*outPaths)[*outCount] == NULL) {
 				continue;
 			}
 			SR_GUI_MEMCPY((*outPaths)[*outCount], path, pathLen * sizeof(char));
@@ -191,58 +190,58 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 			(*outCount)++;
 		}
 	}
-    g_slist_free_full(filenames, g_free);
+	g_slist_free_full(filenames, g_free);
 	g_object_unref(pickerNative);
-    return SR_GUI_VALIDATED;
+	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath){
+int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
 	*outPath = NULL;
-	if(!gtk_init_check(NULL, NULL)){
+	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
 
 	GtkFileChooserNative* pickerNative = gtk_file_chooser_native_new(title, NULL, GTK_FILE_CHOOSER_ACTION_SAVE, NULL, NULL);
-	GtkFileChooser* picker = GTK_FILE_CHOOSER(pickerNative);
+	GtkFileChooser* picker			   = GTK_FILE_CHOOSER(pickerNative);
 	gtk_file_chooser_set_do_overwrite_confirmation(picker, TRUE);
 	gtk_file_chooser_set_create_folders(picker, TRUE);
 	gtk_file_chooser_set_current_folder(picker, startDir);
 
-	if(_sr_gui_add_filter_extensions(exts, picker) != 1){
+	if(_sr_gui_add_filter_extensions(exts, picker) != 1) {
 		g_object_unref(pickerNative);
 		return SR_GUI_CANCELLED;
 	}
 
 	int res = gtk_native_dialog_run(GTK_NATIVE_DIALOG(pickerNative));
-	if(res != GTK_RESPONSE_ACCEPT){
+	if(res != GTK_RESPONSE_ACCEPT) {
 		g_object_unref(pickerNative);
 		return SR_GUI_CANCELLED;
 	}
-    
-    char* filename = gtk_file_chooser_get_filename(picker);
-    const size_t fileLen = strlen(filename);
-    *outPath = SR_GUI_MALLOC((fileLen + 1) * sizeof(char));
-    if(*outPath == NULL){
-    	g_free(filename);
+
+	char* filename		 = gtk_file_chooser_get_filename(picker);
+	const size_t fileLen = strlen(filename);
+	*outPath			 = SR_GUI_MALLOC((fileLen + 1) * sizeof(char));
+	if(*outPath == NULL) {
+		g_free(filename);
 		g_object_unref(pickerNative);
-    	return SR_GUI_CANCELLED;
+		return SR_GUI_CANCELLED;
 	}
 	SR_GUI_MEMCPY(*outPath, filename, fileLen * sizeof(char));
 	(*outPath)[fileLen] = '\0';
-    g_free(filename);
+	g_free(filename);
 	g_object_unref(pickerNative);
-    return SR_GUI_VALIDATED;	
+	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_choice(const char* title, const char* message, int level, const char* button0, const char* button1, const char* button2){
-	if(!gtk_init_check(NULL, NULL)){
+int sr_gui_ask_choice(const char* title, const char* message, int level, const char* button0, const char* button1, const char* button2) {
+	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
 
 	const char* iconName = "dialog-information";
-	if(level == SR_GUI_MESSAGE_LEVEL_ERROR){
+	if(level == SR_GUI_MESSAGE_LEVEL_ERROR) {
 		iconName = "dialog-error";
-	} else if(level == SR_GUI_MESSAGE_LEVEL_WARN){
+	} else if(level == SR_GUI_MESSAGE_LEVEL_WARN) {
 		iconName = "dialog-warning";
 	}
 
@@ -254,7 +253,7 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	// Pack title and message in a vertical box.
 	// Configure title.
 	GtkWidget* head = gtk_label_new(title);
-	char *markup = g_markup_printf_escaped("\t<b>%s</b>", title);
+	char* markup	= g_markup_printf_escaped("\t<b>%s</b>", title);
 	gtk_label_set_markup(GTK_LABEL(head), markup);
 	g_free(markup);
 	gtk_widget_set_halign(head, GTK_ALIGN_START);
@@ -262,14 +261,14 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	GtkWidget* label = gtk_label_new(message);
 	gtk_label_set_width_chars(GTK_LABEL(label), 50);
 	gtk_label_set_max_width_chars(GTK_LABEL(label), 50);
-	gtk_label_set_line_wrap (GTK_LABEL(label), TRUE);
+	gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
 	// Pack both labels.
 	GtkWidget* textArea = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
 	gtk_container_add(GTK_CONTAINER(textArea), head);
 	gtk_container_add(GTK_CONTAINER(textArea), label);
 
 	// Pack the icon and texts in an horizontal box.
-	GtkWidget* icon = gtk_image_new_from_icon_name(iconName, GTK_ICON_SIZE_DIALOG);
+	GtkWidget* icon		= gtk_image_new_from_icon_name(iconName, GTK_ICON_SIZE_DIALOG);
 	GtkWidget* infoArea = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 	gtk_container_add(GTK_CONTAINER(infoArea), icon);
 	gtk_container_add(GTK_CONTAINER(infoArea), textArea);
@@ -289,21 +288,21 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	int res = gtk_dialog_run(GTK_DIALOG(dialog));
 	gtk_widget_destroy(dialog);
 
-	if(res != SR_GUI_BUTTON0 && res != SR_GUI_BUTTON1 && res != SR_GUI_BUTTON2){
+	if(res != SR_GUI_BUTTON0 && res != SR_GUI_BUTTON1 && res != SR_GUI_BUTTON2) {
 		return SR_GUI_CANCELLED;
 	}
 	return res;
 }
 
-int sr_gui_ask_string(const char* title, const char* message, char** result){
-	if(!gtk_init_check(NULL, NULL)){
+int sr_gui_ask_string(const char* title, const char* message, char** result) {
+	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
 
 	GtkWidget* dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_OTHER, GTK_BUTTONS_OK_CANCEL, "%s", title);
 	gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", message);
 
-	GtkWidget* contentArea = gtk_message_dialog_get_message_area(GTK_MESSAGE_DIALOG(dialog));
+	GtkWidget* contentArea	= gtk_message_dialog_get_message_area(GTK_MESSAGE_DIALOG(dialog));
 	GtkEntryBuffer* textStr = gtk_entry_buffer_new("Default value", 13);
 	gtk_entry_buffer_set_max_length(textStr, SR_GUI_MAX_STR_SIZE);
 	GtkWidget* textField = gtk_entry_new_with_buffer(textStr);
@@ -311,16 +310,15 @@ int sr_gui_ask_string(const char* title, const char* message, char** result){
 	gtk_widget_show_all(contentArea);
 
 	int res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if(res != GTK_RESPONSE_ACCEPT && res != GTK_RESPONSE_OK && res != GTK_RESPONSE_APPLY && res != GTK_RESPONSE_YES){
+	if(res != GTK_RESPONSE_ACCEPT && res != GTK_RESPONSE_OK && res != GTK_RESPONSE_APPLY && res != GTK_RESPONSE_YES) {
 		gtk_widget_destroy(dialog);
 		return SR_GUI_CANCELLED;
 	}
 
-
-	const char* str = gtk_entry_buffer_get_text(textStr);
+	const char* str		   = gtk_entry_buffer_get_text(textStr);
 	const size_t sizeBytes = gtk_entry_buffer_get_bytes(textStr);
-	*result = (char*)SR_GUI_MALLOC(sizeBytes + sizeof(char));
-	if(*result == NULL){
+	*result				   = (char*)SR_GUI_MALLOC(sizeBytes + sizeof(char));
+	if(*result == NULL) {
 		gtk_widget_destroy(dialog);
 		return SR_GUI_CANCELLED;
 	}
@@ -330,17 +328,16 @@ int sr_gui_ask_string(const char* title, const char* message, char** result){
 	return SR_GUI_VALIDATED;
 }
 
-
-int sr_gui_ask_color(unsigned char color[3]){
-	if(!gtk_init_check(NULL, NULL)){
+int sr_gui_ask_color(unsigned char color[3]) {
+	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
 
 	GdkRGBA colorGtk;
-	colorGtk.red 	= ((float)color[0])/255.0f;
-	colorGtk.green 	= ((float)color[1])/255.0f;
-	colorGtk.blue 	= ((float)color[2])/255.0f;
-	colorGtk.alpha 	= 1.0f;
+	colorGtk.red   = ((float)color[0]) / 255.0f;
+	colorGtk.green = ((float)color[1]) / 255.0f;
+	colorGtk.blue  = ((float)color[2]) / 255.0f;
+	colorGtk.alpha = 1.0f;
 
 	// Set default color.
 	GtkWidget* picker = gtk_color_chooser_dialog_new(NULL, NULL);
@@ -350,7 +347,7 @@ int sr_gui_ask_color(unsigned char color[3]){
 	int res = gtk_dialog_run(GTK_DIALOG(picker));
 	// Codes are different for different validation buttons.
 	// The button label is "Select", so in doubt check all possible outcomes.
-	if(res != GTK_RESPONSE_ACCEPT && res != GTK_RESPONSE_OK && res != GTK_RESPONSE_APPLY && res != GTK_RESPONSE_YES){
+	if(res != GTK_RESPONSE_ACCEPT && res != GTK_RESPONSE_OK && res != GTK_RESPONSE_APPLY && res != GTK_RESPONSE_YES) {
 		gtk_widget_destroy(picker);
 		return SR_GUI_CANCELLED;
 	}
@@ -363,4 +360,3 @@ int sr_gui_ask_color(unsigned char color[3]){
 	gtk_widget_destroy(picker);
 	return SR_GUI_VALIDATED;
 }
-

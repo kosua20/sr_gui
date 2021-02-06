@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-	GLFWwindow * createWindow(int w, int h);
+GLFWwindow* createWindow(int w, int h);
 
 #ifdef __cplusplus
 }
