@@ -238,12 +238,12 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	} else if(level == SR_GUI_MESSAGE_LEVEL_WARN) {
 		iconName = "dialog-warning";
 	}
-	const char* buttons = { button0, button1, button2 };
+	const char* buttons[] = { button0, button1, button2 };
 	const int bCount = sizeof(buttons)/sizeof(buttons[0]);
 
 	// We allow some labels to be null, and should skip them while preserving the returned index.
 	// (pressing button2 should always return 2 even if button1 == NULL)
-	char* selectedButtons[3];
+	const char* selectedButtons[3];
 	int selectedIDs[3];
 	int localIndex = 0;
 
@@ -303,7 +303,7 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	gtk_widget_destroy(dialog);
 
 	for(int bid = 0; bid < bCount; ++bid){
-		if(buttons[bid] != NULL && ((bid+1) == res)){
+		if(buttons[bid] != NULL && ((SR_GUI_BUTTON0+bid) == res)){
 			return SR_GUI_BUTTON0 + bid;
 		}
 	}
