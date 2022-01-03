@@ -50,7 +50,7 @@ This will display a passive notification with the given title and message via th
 
     int sr_gui_ask_choice(const char* title, const char* message, int level, const char* button0, const char* button1, const char* button2);
 
-Display a modal dialog with the given title and message, along with three buttons with custom labels. Returns either `SR_GUI_BUTTON0`, `SR_GUI_BUTTON1` or `SR_GUI_BUTTON2` based on the button pressed. If the system interface allows for cancellation, `SR_GUI_CANCELLED` might also be returned when the user does so.
+Display a modal dialog with the given title and message, along with three buttons with custom labels. Returns either `SR_GUI_BUTTON0`, `SR_GUI_BUTTON1` or `SR_GUI_BUTTON2` based on the button pressed. If the system interface allows for cancellation, `SR_GUI_CANCELLED` might also be returned when the user does so. Passing `NULL` as a label will hide the corresponding button.
 
 ### String query
 

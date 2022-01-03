@@ -31,7 +31,16 @@ int main(int argc, char** argv) {
 	}
 
 	if(1) {
-		int res = sr_gui_ask_choice("Question title", "This is  a question text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_WARN, "OK", "Cancel", "Nope");
+		int res = sr_gui_ask_choice("Question title", "This is a question text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_WARN, "OK", "Cancel", "Nope");
+		if(res == SR_GUI_CANCELLED) {
+			printf("Choice query canceled\n");
+		} else {
+			printf("Choice was: %s\n", res == SR_GUI_BUTTON0 ? "OK" : (res == SR_GUI_BUTTON1 ? "Cancel" : "Nope"));
+		}
+	}
+
+	if(1) {
+		int res = sr_gui_ask_choice("Question title", "This is a second question text with fewer choices.", SR_GUI_MESSAGE_LEVEL_WARN, "OK", "Cancel", NULL);
 		if(res == SR_GUI_CANCELLED) {
 			printf("Choice query canceled\n");
 		} else {
