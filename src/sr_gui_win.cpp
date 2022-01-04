@@ -49,7 +49,7 @@ wchar_t* _sr_gui_widen_string(const char* str) {
 
 // Transfer output ownership to the caller.
 char* _sr_gui_narrow_string(const wchar_t* wstr) {
-	if(str == NULL){
+	if(wstr == NULL) {
 		return NULL;
 	}
 	const int sizeNarrow = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
@@ -590,7 +590,7 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	}
 
 	for(int bid = 0; bid < bCount; ++bid){
-		if(buttons[bid] != NULL && ((bid+1) == button)){
+		if(buttons[bid] != NULL && ((SR_GUI_BUTTON0 + bid) == button)) {
 			return SR_GUI_BUTTON0 + bid;
 		}
 	}
