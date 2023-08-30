@@ -27,6 +27,8 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 
 int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount);
 
+int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath);
+
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outpath);
 
 int sr_gui_ask_choice(const char* title, const char* message, int level, const char* button0, const char* button1, const char* button2);

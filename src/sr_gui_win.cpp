@@ -375,7 +375,7 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 	}
 
 	WCHAR* selectedPath = nullptr;
-	res					= selectedItem->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &selectedPath);
+	res					= selectedItem->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &selectedPath); // Shouldn't this be SIGDN_FILESYSPATH
 	selectedItem->Release();
 	if(!SUCCEEDED(res)) {
 		return SR_GUI_CANCELLED;
@@ -475,6 +475,62 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	}
 	selectedItems->Release();
 
+	return SR_GUI_VALIDATED;
+}
+
+int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	*outPath = NULL;
+
+	IFileOpenDialog* dialog = NULL;
+	HRESULT res				= CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_PPV_ARGS(&dialog));
+	if(!SUCCEEDED(res)) {
+		return SR_GUI_CANCELLED;
+	}
+	// Set default path.
+	bool success = _sr_gui_add_default_path(startDir, dialog);
+	if(!success) {
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Set extension filter.
+	success = _sr_gui_add_filter_extensions(exts, dialog);
+	if(!success) {
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Set title.
+	WCHAR* titleW = _sr_gui_widen_string(title);
+	res			  = dialog->SetTitle(titleW);
+	SR_GUI_FREE(titleW);
+	if(!SUCCEEDED(res)) {
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+
+	// Present
+	res = dialog->Show(nullptr);
+	if(!SUCCEEDED(res)) {
+		dialog->Release();
+		return SR_GUI_CANCELLED;
+	}
+	
+	IShellItem* selectedItem = nullptr;
+	res						 = dialog->GetResult(&selectedItem);
+	dialog->Release();
+	if(!SUCCEEDED(res)) {
+		return SR_GUI_CANCELLED;
+	}
+
+	WCHAR* selectedPath = nullptr;
+	res					= selectedItem->GetDisplayName(SIGDN_FILESYSPATH, &selectedPath);
+	selectedItem->Release();
+	if(!SUCCEEDED(res)) {
+		return SR_GUI_CANCELLED;
+	}
+	*outPath = _sr_gui_narrow_string(selectedPath);
+	CoTaskMemFree(selectedPath);
 	return SR_GUI_VALIDATED;
 }
 

@@ -114,6 +114,45 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	return SR_GUI_VALIDATED;
 }
 
+
+int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	*outPath = NULL;
+
+	NSOpenPanel* panel = [NSOpenPanel openPanel];
+	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setAllowsMultipleSelection:NO];
+	[panel setCanChooseFiles:YES];
+	[panel setCanChooseDirectories:NO];
+	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+
+	if(exts != NULL && strlen(exts) > 0) {
+		NSString* extsStr	 = [NSString stringWithUTF8String:exts];
+		NSArray* allowedExts = [extsStr componentsSeparatedByString:@","];
+		[panel setAllowedFileTypes:allowedExts];
+		[panel setAllowsOtherFileTypes:NO];
+	}
+
+	NSModalResponse res = [panel runModal];
+	if(res != NSModalResponseOK) {
+		[panel release];
+		return SR_GUI_CANCELLED;
+	}
+
+	NSArray* urls = [panel URLs];
+	const int outCount	  = [urls count];
+	if(outCount > 0) {
+		const char* resStr = [[[urls objectAtIndex:0] path] UTF8String];
+		const int strSize  = strlen(resStr);
+
+		*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize + 1));
+		SR_GUI_MEMCPY(*outPath, resStr, sizeof(char) * strSize);
+		(*outPath)[strSize] = '\0';
+	}
+
+	[panel release];
+	return SR_GUI_VALIDATED;
+}
+
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
 	*outPath = NULL;
 

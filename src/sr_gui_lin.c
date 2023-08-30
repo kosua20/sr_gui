@@ -201,6 +201,48 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	return SR_GUI_VALIDATED;
 }
 
+int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	*outPath = NULL;
+	if(!gtk_init_check(NULL, NULL)) {
+		return SR_GUI_CANCELLED;
+	}
+
+	GtkFileChooserNative* pickerNative = gtk_file_chooser_native_new(title, NULL, GTK_FILE_CHOOSER_ACTION_OPEN, NULL, NULL);
+	GtkFileChooser* picker			   = GTK_FILE_CHOOSER(pickerNative);
+	gtk_file_chooser_set_current_folder(picker, startDir);
+	gtk_file_chooser_set_select_multiple(picker, FALSE);
+
+	if(_sr_gui_add_filter_extensions(exts, picker) != 1) {
+		g_object_unref(pickerNative);
+		_sr_gui_pump_events();
+		return SR_GUI_CANCELLED;
+	}
+
+	int res = gtk_native_dialog_run(GTK_NATIVE_DIALOG(pickerNative));
+	if(res != GTK_RESPONSE_ACCEPT) {
+		g_object_unref(pickerNative);
+		_sr_gui_pump_events();
+		return SR_GUI_CANCELLED;
+	}
+
+	char* filename		 = gtk_file_chooser_get_filename(picker);
+	const size_t fileLen = strlen(filename);
+	*outPath			 = SR_GUI_MALLOC((fileLen + 1) * sizeof(char));
+	if(*outPath == NULL) {
+		g_free(filename);
+		g_object_unref(pickerNative);
+		_sr_gui_pump_events();
+		return SR_GUI_CANCELLED;
+	}
+	SR_GUI_MEMCPY(*outPath, filename, fileLen * sizeof(char));
+	(*outPath)[fileLen] = '\0';
+
+	g_free(filename);
+	g_object_unref(pickerNative);
+	_sr_gui_pump_events();
+	return SR_GUI_VALIDATED;
+}
+
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
 	*outPath = NULL;
 	if(!gtk_init_check(NULL, NULL)) {

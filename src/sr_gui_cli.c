@@ -146,6 +146,32 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	return SR_GUI_VALIDATED;
 }
 
+
+int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	*outPath = NULL;
+	(void)startDir;
+
+	fprintf(stdout, "--- File selection --- %s\n", title);
+	if(exts && strlen(exts) > 0) {
+		fprintf(stdout, "Allowed extensions: %s\n", exts);
+	}
+	fprintf(stdout, "Type the absolute path to a file on disk below and press enter to finish. Submit an empty line to cancel\n");
+
+	char buffer[SR_GUI_MAX_STR_SIZE];
+	const int size = _sr_gui_query_line_from_cin(buffer, SR_GUI_MAX_STR_SIZE);
+	if(size == 0) {
+		return SR_GUI_CANCELLED;
+	}
+	// Copy to result, allocating enough space.
+	*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * (size + 1));
+	if(*outPath == NULL) {
+		return SR_GUI_CANCELLED;
+	}
+	SR_GUI_MEMCPY(*outPath, buffer, sizeof(char) * (size + 1));
+	
+	return SR_GUI_VALIDATED;
+}
+
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
 	*outPath = NULL;
 	(void)startDir;
