@@ -138,7 +138,7 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	if(*outPaths == NULL) {
 		// Free tempPaths string.
 		for(int i = 0; i < pathId; ++i) {
-			free(tempPaths[i]);
+			SR_GUI_FREE(tempPaths[i]);
 		}
 		return SR_GUI_CANCELLED;
 	}
