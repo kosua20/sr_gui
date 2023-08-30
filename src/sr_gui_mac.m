@@ -330,10 +330,52 @@ int sr_gui_open_in_explorer(const char* path){
 	if(!pathStr){
 		return SR_GUI_CANCELLED;
 	}
-	if([[NSWorkspace sharedWorkspace] selectFile:[pathStr stringByResolvingSymlinksInPath] inFileViewerRootedAtPath:@""]){
-		return SR_GUI_VALIDATED;
+	NSString* pathFullStr = [pathStr stringByResolvingSymlinksInPath];
+	int res = [[NSWorkspace sharedWorkspace] selectFile:pathFullStr inFileViewerRootedAtPath:@""];
+	[pathFullStr release];
+	[pathStr release];
+	return res ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
+}
+
+int sr_gui_open_in_default_app(const char* path){
+	if(!path){
+		return SR_GUI_CANCELLED;
 	}
-	return SR_GUI_CANCELLED;
+	NSString* pathStr = [[NSString alloc] initWithUTF8String:path];
+	if(!pathStr){
+		return SR_GUI_CANCELLED;
+	}
+	NSString* pathFullStr = [pathStr stringByResolvingSymlinksInPath];
+	NSURL* pathUrl = [[NSURL alloc] initFileURLWithPath:pathFullStr];
+	if(!pathUrl){
+		[pathFullStr release];
+		[pathStr release];
+		return SR_GUI_CANCELLED;
+	}
+	int res = [[NSWorkspace sharedWorkspace] openURL:pathUrl];
+	[pathUrl release];
+	[pathFullStr release];
+	[pathStr release];
+	return res ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
+}
+
+int sr_gui_open_in_browser(const char* url){
+	if(!url){
+		return SR_GUI_CANCELLED;
+	}
+	NSString* urlStr = [[NSString alloc] initWithUTF8String:url];
+	if(!urlStr){
+		return SR_GUI_CANCELLED;
+	}
+	NSURL* urlUrl = [[NSURL alloc] initWithString:urlStr];
+	if(!urlUrl){
+		[urlStr release];
+		return SR_GUI_CANCELLED;
+	}
+	int res = [[NSWorkspace sharedWorkspace] openURL:urlUrl];
+	[urlUrl release];
+	[urlStr release];
+	return res ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
 }
 
 #endif

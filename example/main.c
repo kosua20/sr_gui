@@ -105,6 +105,18 @@ int main(int argc, char** argv) {
 		}
 	}
 
+	if(1){
+		sr_gui_open_in_explorer("../../../README.md");
+	}
+
+	if(1){
+		sr_gui_open_in_browser("https://github.com/kosua20/sr_gui");
+	}
+
+	if(1){
+		sr_gui_open_in_default_app("../../../LICENSE.md");
+	}
+	
 	sr_gui_cleanup();
 
 	return 0;

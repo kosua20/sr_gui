@@ -295,3 +295,17 @@ int sr_gui_open_in_explorer(const char* path){
 	_sr_gui_absorb_line_from_cin();
 	return SR_GUI_VALIDATED;
 }
+
+int sr_gui_open_in_default_app(const char* path){
+	fprintf(stdout, "* Path: %s\n", path);
+	fprintf(stdout, "Press enter to continue...");
+	_sr_gui_absorb_line_from_cin();
+	return SR_GUI_VALIDATED;
+}
+
+int sr_gui_open_in_browser(const char* url){
+	fprintf(stdout, "* URL: %s\n", url);
+	fprintf(stdout, "Press enter to continue...");
+	_sr_gui_absorb_line_from_cin();
+	return SR_GUI_VALIDATED;
+}

@@ -458,3 +458,25 @@ int sr_gui_open_in_explorer(const char* path){
 	SR_GUI_FREE(buffer);
 	return res == 0 ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
 }
+
+int sr_gui_open_in_default_app(const char* path){
+	const unsigned int strSize = strlen(path) + 1;
+	char* buffer = SR_GUI_MALLOC((strSize + 10) * sizeof(char));
+	// Generate a xdg-open command with the file path.
+	sprintf(buffer, "xdg-open %s", path);
+	// Run
+	int res = system(buffer);
+	SR_GUI_FREE(buffer);
+	return res == 0 ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
+}
+
+int sr_gui_open_in_browser(const char* url){
+	const unsigned int strSize = strlen(url) + 1;
+	char* buffer = SR_GUI_MALLOC((strSize + 10) * sizeof(char));
+	// Generate a xdg-open command with the URL
+	sprintf(buffer, "xdg-open %s", url);
+	// Run
+	int res = system(buffer);
+	SR_GUI_FREE(buffer);
+	return res == 0 ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
+}

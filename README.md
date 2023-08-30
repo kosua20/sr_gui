@@ -93,6 +93,14 @@ Display a picker dialog with the given title to select an output file (existing 
 
 Open the directory containing the given path in the system file browser (Explorer, Finder, Nautilus,...), and if possible select the file.
 
+    int sr_gui_open_in_default_app(const char* path);
+
+Open the file in the application assigned to its filetype by default, if it exists.
+
+    int sr_gui_open_in_browser(const char* url);
+
+Open the URL in a tab of the default web browser.
+
 ## Customization
 
 A few options can be adjusted when compiling `sr_gui`, by editing the `src/sr_gui_internal.h` header file.

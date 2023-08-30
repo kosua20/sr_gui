@@ -39,6 +39,10 @@ int sr_gui_ask_color(unsigned char color[3]);
 
 int sr_gui_open_in_explorer(const char* path);
 
+int sr_gui_open_in_default_app(const char* path);
+
+int sr_gui_open_in_browser(const char* url);
+
 #ifdef __cplusplus
 }
 #endif

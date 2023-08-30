@@ -812,4 +812,18 @@ int sr_gui_open_in_explorer(const char* path){
 	return SR_GUI_VALIDATED;
 }
 
+int sr_gui_open_in_default_app(const char* path){
+	WCHAR* pathW = _sr_gui_widen_string(path);
+	ShellExecute(NULL, NULL, pathW, NULL, NULL, SW_SHOW);
+	SR_GUI_FREE(pathW);
+	return SR_GUI_VALIDATED;
+}
+
+int sr_gui_open_in_explorer(const char* url){
+	WCHAR* urlW = _sr_gui_widen_string(url);
+	ShellExecute(NULL, NULL, urlW, NULL, NULL, SW_SHOW);
+	SR_GUI_FREE(urlW);
+	return SR_GUI_VALIDATED;
+}
+
 #endif
