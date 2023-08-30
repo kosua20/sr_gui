@@ -288,3 +288,10 @@ int sr_gui_ask_color(unsigned char color[3]) {
 	}
 	return SR_GUI_VALIDATED;
 }
+
+int sr_gui_open_in_explorer(const char* path){
+	fprintf(stdout, "* Path: %s\n", path);
+	fprintf(stdout, "Press enter to continue...");
+	_sr_gui_absorb_line_from_cin();
+	return SR_GUI_VALIDATED;
+}

@@ -439,3 +439,22 @@ int sr_gui_ask_color(unsigned char color[3]) {
 	_sr_gui_pump_events();
 	return SR_GUI_VALIDATED;
 }
+
+int sr_gui_open_in_explorer(const char* path){
+	const unsigned int strSize = strlen(path) + 1;
+	char* buffer = SR_GUI_MALLOC((strSize + 10) * sizeof(char));
+	// Generate a xdg-open command with the parent directory.
+	sprintf(buffer, "xdg-open %s", path);
+	// End the path at the last path separator.
+	char* tail = strrchr(buffer, '/');
+	if(tail == NULL){
+		tail = strrchr(buffer, '\\');
+	}
+	if(tail != NULL){
+		*tail = '\0';
+	}
+	// Run
+	int res = system(buffer);
+	SR_GUI_FREE(buffer);
+	return res == 0 ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
+}

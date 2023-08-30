@@ -15,7 +15,7 @@ Common files: `include/sr_gui.h`, `src/sr_gui_internal.h`.
 
 Each platform implementation can be found in a separate file.
 
-* On Windows, this should link against `User2`, `Comdlg32`, `Comctl32` and `runtimeobject`. Implementation is in `src/sr_gui_win.cpp` (C++). **Due to a system limitation**, notifications will only work after the first run with a given app identifier (see [Customization](#customization)).
+* On Windows, this should link against `User2`, `Comdlg32`, `Comctl32`, `Shell32` and `runtimeobject`. Implementation is in `src/sr_gui_win.cpp` (C++). **Due to a system limitation**, notifications will only work after the first run with a given app identifier (see [Customization](#customization)).
 * On macOS, this should link against `AppKit.framework`. Implementation is in `src/sr_gui_mac.m` (Objective-C). 
 * On Linux, this should link against `gtk+-3.0` and `libnotify`. Implementation is in `src/sr_gui_lin.c` (C).
 * The command line version has no dependencies. Implementation is in `src/sr_gui_cli.c` (C).
@@ -86,6 +86,12 @@ Display a picker dialog with the given title to select a directory. The director
     int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outpath);
 
 Display a picker dialog with the given title to select an output file (existing or to be created). The directory to be initially presented to the user can be specified. Specific file extensions can be requested by passing a comma-separated list (for instance `"png,jpg,bmp"`). The selected file path will be populated once the user validates.
+
+### System interactions
+
+    int sr_gui_open_in_explorer(const char* path);
+
+Open the directory containing the given path in the system file browser (Explorer, Finder, Nautilus,...), and if possible select the file.
 
 ## Customization
 

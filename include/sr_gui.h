@@ -37,6 +37,8 @@ int sr_gui_ask_string(const char* title, const char* message, char** result);
 
 int sr_gui_ask_color(unsigned char color[3]);
 
+int sr_gui_open_in_explorer(const char* path);
+
 #ifdef __cplusplus
 }
 #endif

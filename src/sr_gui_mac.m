@@ -322,4 +322,18 @@ int sr_gui_ask_color(unsigned char color[3]) {
 	return SR_GUI_VALIDATED;
 }
 
+int sr_gui_open_in_explorer(const char* path){
+	if(!path){
+		return SR_GUI_CANCELLED;
+	}
+	NSString* pathStr = [[NSString alloc] initWithUTF8String:path];
+	if(!pathStr){
+		return SR_GUI_CANCELLED;
+	}
+	if([[NSWorkspace sharedWorkspace] selectFile:[pathStr stringByResolvingSymlinksInPath] inFileViewerRootedAtPath:@""]){
+		return SR_GUI_VALIDATED;
+	}
+	return SR_GUI_CANCELLED;
+}
+
 #endif
