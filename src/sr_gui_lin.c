@@ -480,3 +480,22 @@ int sr_gui_open_in_browser(const char* url){
 	SR_GUI_FREE(buffer);
 	return res == 0 ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
 }
+
+int sr_gui_get_application_data_path(char** outPath) {
+	*outPath = NULL;
+	// /home/name/.config/ or other, based on $HOME
+	const char* envHome = getenv("HOME");
+	if(envHome) {
+		const char* suffix = ".config/";
+		const unsigned int strSize = strlen(envHome);
+		const int extraSlash  = (strSize != 0 && envHome[strSize - 1] != '/') ? 1 : 0;
+		const unsigned int finalSize = strSize + extraSlash + strlen(suffix) + 1;
+		*outPath = (char*)SR_GUI_MALLOC(finalSize * sizeof(char));
+		// TODO: memcpy
+		return SR_GUI_VALIDATED;
+	}
+	// If nothing found, return the working directory.
+	*outPath = (char*)SR_GUI_MALLOC(1 * sizeof(char));
+	*outPath[0] = '\0';
+	return SR_GUI_VALIDATED;
+}

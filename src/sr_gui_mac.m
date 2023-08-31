@@ -378,4 +378,10 @@ int sr_gui_open_in_browser(const char* url){
 	return res ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
 }
 
+
+int sr_gui_get_application_data_path(char** outPath) {
+	*outPath = NULL;
+	return SR_GUI_VALIDATED;
+}
+
 #endif
