@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
 	// Create dummy window for messages etc.
 	createWindow(320, 240);
 
+	// /!\ This example will leak all returned strings. Don't do this in real life.
 	sr_gui_init();
 
 	if(1) {
@@ -107,14 +108,18 @@ int main(int argc, char** argv) {
 
 	if(1){
 		sr_gui_open_in_explorer("../../../README.md");
-	}
-
-	if(1){
 		sr_gui_open_in_browser("https://github.com/kosua20/sr_gui");
+		sr_gui_open_in_default_app("../../../LICENSE.md");
 	}
 
 	if(1){
-		sr_gui_open_in_default_app("../../../LICENSE.md");
+		char* outPath = NULL;
+		int res = sr_gui_get_app_data_path(&outPath);
+		if(res == SR_GUI_VALIDATED) {
+			printf("Application data path was: '%s'\n", outPath);
+		} else {
+			printf("Application data path failed.\n");
+		}
 	}
 	
 	sr_gui_cleanup();

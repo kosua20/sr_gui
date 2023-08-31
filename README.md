@@ -75,6 +75,10 @@ The three functions return `SR_GUI_VALIDATED` if the user validated, or `SR_GUI_
 
 Display a picker dialog with the given title to select one or multiple files. The directory to be initially presented to the user can be specified. Specific file extensions can be requested by passing a comma-separated list (for instance `"png,jpg,bmp"`). The number of selected items and their paths will be populated once the user validates.
 
+    int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath);
+
+Similar function, but only one item can be selected and will be returned once the user validates.
+
 #### Selecting an existing directory
 
     int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath);
@@ -100,6 +104,10 @@ Open the file in the application assigned to its filetype by default, if it exis
     int sr_gui_open_in_browser(const char* url);
 
 Open the URL in a tab of the default web browser.
+
+    int sr_gui_get_app_data_path(char** outPath);
+
+Query the path to the application data directory of the user, where it is customary for applications to store their configuration in a distinct sub-directory. There is no guarantee that the returned path exists on disk.
 
 ## Customization
 
