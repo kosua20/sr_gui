@@ -481,21 +481,41 @@ int sr_gui_open_in_browser(const char* url){
 	return res == 0 ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
 }
 
-int sr_gui_get_application_data_path(char** outPath) {
+int sr_gui_get_app_data_path(char** outPath) {
 	*outPath = NULL;
 	// /home/name/.config/ or other, based on $HOME
 	const char* envHome = getenv("HOME");
-	if(envHome) {
-		const char* suffix = ".config/";
-		const unsigned int strSize = strlen(envHome);
-		const int extraSlash  = (strSize != 0 && envHome[strSize - 1] != '/') ? 1 : 0;
-		const unsigned int finalSize = strSize + extraSlash + strlen(suffix) + 1;
-		*outPath = (char*)SR_GUI_MALLOC(finalSize * sizeof(char));
-		// TODO: memcpy
+	if(!envHome) {
+		// If nothing found, return the working directory.
+		*outPath = (char*)SR_GUI_MALLOC(1 * sizeof(char));
+		if(*outPath == NULL) {
+			return SR_GUI_CANCELLED;
+		}
+		*outPath[0] = '\0';
 		return SR_GUI_VALIDATED;
 	}
-	// If nothing found, return the working directory.
-	*outPath = (char*)SR_GUI_MALLOC(1 * sizeof(char));
-	*outPath[0] = '\0';
+
+	const char* suffix = ".config/";
+	const unsigned int strSize = strlen(envHome);
+	const unsigned int suffixSize = strlen(suffix);
+	const int slashSize = ((strSize != 0) && (envHome[strSize - 1] != '/')) ? 1 : 0;
+	const unsigned int finalSize = strSize + slashSize + suffixSize + 1;
+
+	*outPath = (char*)SR_GUI_MALLOC(finalSize * sizeof(char));
+	if(*outPath == NULL) {
+		return SR_GUI_CANCELLED;
+	}
+	
+	// Copy home path
+	SR_GUI_MEMCPY(*outPath, envHome, sizeof(char) * strSize);
+	unsigned int nextIndex = strSize;
+	// Append slash if needed
+	if(slashSize != 0){
+		(*outPath)[nextIndex++] = '/';
+	}
+	// Append config.
+	SR_GUI_MEMCPY(*outPath + nextIndex, suffix, sizeof(char) * suffixSize);
+	// End string.
+	(*outPath)[finalSize-1] = '\0';
 	return SR_GUI_VALIDATED;
 }

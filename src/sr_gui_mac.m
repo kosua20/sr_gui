@@ -378,9 +378,26 @@ int sr_gui_open_in_browser(const char* url){
 	return res ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
 }
 
-
-int sr_gui_get_application_data_path(char** outPath) {
+int sr_gui_get_app_data_path(char** outPath) {
 	*outPath = NULL;
+	NSURL* pathUrl = [[[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask] firstObject];
+	if(pathUrl == nil){
+		return SR_GUI_CANCELLED;
+	}
+	const char* resStr = [[pathUrl path] UTF8String];
+	const int strSize  = strlen(resStr);
+	// Allocate outpath storage with extra space for trailing chars.
+	*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * (strSize + 2));
+	if(!(*outPath)){
+		return SR_GUI_CANCELLED;
+	}
+	SR_GUI_MEMCPY(*outPath, resStr, sizeof(char) * strSize);
+	(*outPath)[strSize] = '\0';
+	(*outPath)[strSize+1] = '\0';
+	// If the last character is not a slash, append it.
+	if((strSize != 0) && ((*outPath)[strSize-1] != '/')){
+		(*outPath)[strSize] = '/';
+	}
 	return SR_GUI_VALIDATED;
 }
 

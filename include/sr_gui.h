@@ -43,6 +43,8 @@ int sr_gui_open_in_default_app(const char* path);
 
 int sr_gui_open_in_browser(const char* url);
 
+int sr_gui_get_app_data_path(char** outPath);
+
 #ifdef __cplusplus
 }
 #endif

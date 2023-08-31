@@ -842,7 +842,7 @@ int sr_gui_open_in_browser(const char* url){
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_get_application_data_path(char** outPath) {
+int sr_gui_get_app_data_path(char** outPath) {
 	*outPath = NULL;
 
 	// %APPDATA%, ie C:/Users/name/AppData/
@@ -855,18 +855,21 @@ int sr_gui_get_application_data_path(char** outPath) {
 	_sr_gui_convert_path_separators(pathData);
 	*outPath = _sr_gui_narrow_string(pathData);
 	CoTaskMemFree(pathData);
+
 	// Fixup trailing slash.
 	char* oldOutPath	 = *outPath;
 	const size_t strSize = strlen(oldOutPath);
-	if(strSize > 0) {
-		if(oldOutPath[strSize - 1] != '\\') {
-			// New copy of outPath will be used.
-			*outPath = (char*)SR_GUI_MALLOC((strSize + 2) * sizeof(char));
-			SR_GUI_MEMCPY(*outPath, oldOutPath, strSize * sizeof(char));
-			*outPath[strSize]	  = '\\';
-			*outPath[strSize + 1] = '\0';
+	if((strSize != 0) && (oldOutPath[strSize - 1] != '\\')) {
+		// New copy of outPath will be used.
+		*outPath = (char*)SR_GUI_MALLOC((strSize + 2) * sizeof(char));
+		if(*outPath == NULL){
 			SR_GUI_FREE(oldOutPath);
+			return SR_GUI_CANCELLED;
 		}
+		SR_GUI_MEMCPY(*outPath, oldOutPath, strSize * sizeof(char));
+		*outPath[strSize]	  = '\\';
+		*outPath[strSize + 1] = '\0';
+		SR_GUI_FREE(oldOutPath);
 	}
 	return SR_GUI_VALIDATED;
 }

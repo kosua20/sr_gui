@@ -309,3 +309,12 @@ int sr_gui_open_in_browser(const char* url){
 	_sr_gui_absorb_line_from_cin();
 	return SR_GUI_VALIDATED;
 }
+
+int sr_gui_get_app_data_path(char** outPath) {
+	*outPath = (char*)SR_GUI_MALLOC(sizeof(char) * 1);
+	if(*outPath == NULL) {
+		return SR_GUI_CANCELLED;
+	}
+	(*outPath)[0] = '\0';
+	return SR_GUI_VALIDATED;
+}
