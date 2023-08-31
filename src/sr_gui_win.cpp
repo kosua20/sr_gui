@@ -50,13 +50,26 @@ wchar_t* _sr_gui_widen_string(const char* str) {
 
 // Transfer output ownership to the caller.
 char* _sr_gui_narrow_string(const wchar_t* wstr) {
-	if(wstr == NULL) {
+	if(wstr == NULL){
 		return NULL;
 	}
 	const int sizeNarrow = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
 	char* output		 = (char*)SR_GUI_MALLOC(sizeNarrow * sizeof(char));
 	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, output, sizeNarrow, NULL, NULL);
 	return output;
+}
+
+// Modify in place
+void _sr_gui_convert_path_separators(wchar_t* str) {
+	if(str == NULL){
+		return;
+	}
+	const size_t len = wcslen(str);
+	for( size_t i = 0; i < len; ++i ){
+		if( str[ i ] == L'/' ){
+			str[i] = L'\\';
+		}
+	}
 }
 
 void sr_gui_show_message(const char* title, const char* message, int level) {
@@ -313,6 +326,7 @@ bool _sr_gui_add_default_path(const char* path, IFileDialog* dialog) {
 		return true;
 	}
 	WCHAR* startDirW = _sr_gui_widen_string(path);
+	_sr_gui_convert_path_separators(startDirW);
 	IShellItem* pathShell;
 	HRESULT res = SHCreateItemFromParsingName(startDirW, NULL, IID_PPV_ARGS(&pathShell));
 	SR_GUI_FREE(startDirW);
@@ -777,6 +791,7 @@ int sr_gui_ask_color(unsigned char color[3]) {
 int sr_gui_open_in_explorer(const char* path){
 
 	WCHAR* pathW = _sr_gui_widen_string(path);
+	_sr_gui_convert_path_separators(pathW);
 
 	bool done = false;
 	IShellFolder* desktop = NULL;
@@ -814,12 +829,13 @@ int sr_gui_open_in_explorer(const char* path){
 
 int sr_gui_open_in_default_app(const char* path){
 	WCHAR* pathW = _sr_gui_widen_string(path);
+	_sr_gui_convert_path_separators(pathW);
 	ShellExecute(NULL, NULL, pathW, NULL, NULL, SW_SHOW);
 	SR_GUI_FREE(pathW);
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_open_in_explorer(const char* url){
+int sr_gui_open_in_browser(const char* url){
 	WCHAR* urlW = _sr_gui_widen_string(url);
 	ShellExecute(NULL, NULL, urlW, NULL, NULL, SW_SHOW);
 	SR_GUI_FREE(urlW);
