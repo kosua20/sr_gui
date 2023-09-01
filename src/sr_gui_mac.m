@@ -16,8 +16,8 @@ void sr_gui_cleanup() {
 
 void sr_gui_show_message(const char* title, const char* message, int level) {
 	NSAlert* alert		  = [[NSAlert alloc] init];
-	alert.messageText	  = [[NSString alloc] initWithUTF8String:title];
-	alert.informativeText = [[NSString alloc] initWithUTF8String:message];
+	alert.messageText	  = [[NSString alloc] initWithUTF8String:(title ? title : SR_GUI_APP_NAME)];
+	alert.informativeText = [[NSString alloc] initWithUTF8String:(message ? message : "")];
 	// Pick the proper alert style.
 	if(level == SR_GUI_MESSAGE_LEVEL_ERROR) {
 		alert.alertStyle = NSAlertStyleCritical;
@@ -37,8 +37,8 @@ void sr_gui_show_message(const char* title, const char* message, int level) {
 void sr_gui_show_notification(const char* title, const char* message) {
 	NSUserNotification* notif = [[NSUserNotification alloc] init];
 	notif.identifier		  = [[NSUUID UUID] UUIDString];
-	notif.title				  = [[NSString alloc] initWithUTF8String:title];
-	notif.informativeText	  = [[NSString alloc] initWithUTF8String:message];
+	notif.title				  = [[NSString alloc] initWithUTF8String:(title ? title : SR_GUI_APP_NAME) ];
+	notif.informativeText	  = [[NSString alloc] initWithUTF8String:(message ? message : "")];
 	notif.soundName			  = NSUserNotificationDefaultSoundName;
 
 	[[NSUserNotificationCenter defaultUserNotificationCenter] scheduleNotification:notif];
@@ -53,12 +53,14 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 	*outPath = NULL;
 
 	NSOpenPanel* panel = [NSOpenPanel openPanel];
-	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setTitle:[NSString stringWithUTF8String:(title ? title : SR_GUI_APP_NAME)]];
 	[panel setAllowsMultipleSelection:NO];
 	[panel setCanChooseFiles:NO];
 	[panel setCanChooseDirectories:YES];
 	[panel setCanCreateDirectories:YES];
-	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	if(startDir){
+		[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	}
 
 	NSModalResponse res = [panel runModal];
 	if(res != NSModalResponseOK) {
@@ -85,11 +87,13 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	*outPaths = NULL;
 
 	NSOpenPanel* panel = [NSOpenPanel openPanel];
-	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setTitle:[NSString stringWithUTF8String:(title ? title : SR_GUI_APP_NAME)]];
 	[panel setAllowsMultipleSelection:YES];
 	[panel setCanChooseFiles:YES];
 	[panel setCanChooseDirectories:NO];
-	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	if(startDir){
+		[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	}
 
 	if(exts != NULL && strlen(exts) > 0) {
 		NSString* extsStr	 = [NSString stringWithUTF8String:exts];
@@ -129,11 +133,13 @@ int sr_gui_ask_load_file(const char* title, const char* startDir, const char* ex
 	*outPath = NULL;
 
 	NSOpenPanel* panel = [NSOpenPanel openPanel];
-	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setTitle:[NSString stringWithUTF8String:(title ? title : SR_GUI_APP_NAME)]];
 	[panel setAllowsMultipleSelection:NO];
 	[panel setCanChooseFiles:YES];
 	[panel setCanChooseDirectories:NO];
-	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	if(startDir){
+		[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	}
 
 	if(exts != NULL && strlen(exts) > 0) {
 		NSString* extsStr	 = [NSString stringWithUTF8String:exts];
@@ -170,10 +176,12 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 	*outPath = NULL;
 
 	NSSavePanel* panel = [NSSavePanel savePanel];
-	[panel setTitle:[NSString stringWithUTF8String:title]];
+	[panel setTitle:[NSString stringWithUTF8String:(title ? title : SR_GUI_APP_NAME)]];
 	[panel setExtensionHidden:NO];
 	[panel setCanCreateDirectories:YES];
-	[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	if(startDir){
+		[panel setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:startDir]]];
+	}
 
 	if(exts != NULL && strlen(exts) > 0) {
 		NSString* extsStr	 = [NSString stringWithUTF8String:exts];
@@ -206,8 +214,8 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 	const int bCount = sizeof(buttons)/sizeof(buttons[0]);
 
 	NSAlert* alert		  = [[NSAlert alloc] init];
-	alert.messageText	  = [[NSString alloc] initWithUTF8String:title];
-	alert.informativeText = [[NSString alloc] initWithUTF8String:message];
+	alert.messageText	  = [[NSString alloc] initWithUTF8String:(title ? title : SR_GUI_APP_NAME)];
+	alert.informativeText = [[NSString alloc] initWithUTF8String:(message ? message : "")];
 	// Pick the proper alert style.
 	if(level == SR_GUI_MESSAGE_LEVEL_ERROR) {
 		alert.alertStyle = NSAlertStyleCritical;
@@ -249,8 +257,8 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	}
 
 	NSAlert* alert		  = [[NSAlert alloc] init];
-	alert.messageText	  = [[NSString alloc] initWithUTF8String:title];
-	alert.informativeText = [[NSString alloc] initWithUTF8String:message];
+	alert.messageText	  = [[NSString alloc] initWithUTF8String:(title ? title : SR_GUI_APP_NAME)];
+	alert.informativeText = [[NSString alloc] initWithUTF8String:(message ? message : "")];
 	alert.alertStyle	  = NSAlertStyleInformational;
 	// Buttons.
 	[alert addButtonWithTitle:@"OK"];
@@ -259,7 +267,8 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	[[[alert buttons] objectAtIndex:1] setTag:SR_GUI_BUTTON1];
 	// Add text field.
 	NSTextField* field = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 200, 20)];
-	[field setStringValue:[[NSString alloc] initWithUTF8String:*result]];
+	const char* defaultValue = *result ? *result : "Default value";
+	[field setStringValue:[[NSString alloc] initWithUTF8String:defaultValue]];
 	[alert setAccessoryView:field];
 	// Run and release.
 	NSModalResponse rep = [alert runModal];
@@ -346,10 +355,19 @@ int sr_gui_open_in_explorer(const char* path){
 	if(!path){
 		return SR_GUI_CANCELLED;
 	}
-	NSString* pathStr = [[NSString alloc] initWithUTF8String:path];
+	// Retrieve the full path.
+	char buffer[PATH_MAX];
+	if(!realpath(path, &buffer[0])){
+		// Just copy the path.
+		const unsigned int pathLen = strlen(path)+1;
+		memcpy(&buffer[0], path, pathLen < PATH_MAX ? pathLen : PATH_MAX);
+	}
+
+	NSString* pathStr = [[NSString alloc] initWithUTF8String:&buffer[0]];
 	if(!pathStr){
 		return SR_GUI_CANCELLED;
 	}
+
 	NSString* pathFullStr = [pathStr stringByResolvingSymlinksInPath];
 	int res = [[NSWorkspace sharedWorkspace] selectFile:pathFullStr inFileViewerRootedAtPath:@""];
 	[pathFullStr release];
