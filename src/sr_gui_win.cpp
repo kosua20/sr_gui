@@ -74,8 +74,8 @@ void _sr_gui_convert_path_separators(wchar_t* str) {
 
 void sr_gui_show_message(const char* title, const char* message, int level) {
 
-	wchar_t* titleW	  = _sr_gui_widen_string(title);
-	wchar_t* messageW = _sr_gui_widen_string(message);
+	wchar_t* titleW	  = _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
+	wchar_t* messageW = _sr_gui_widen_string(message ? message : "");
 
 	PCWSTR icon = TD_INFORMATION_ICON;
 	if(level == SR_GUI_MESSAGE_LEVEL_ERROR) {
@@ -204,8 +204,8 @@ void sr_gui_show_notification(const char* title, const char* message) {
 
 	// Create the notification template
 	WCHAR* templateBase			   = L"<toast><visual><binding template='ToastGeneric'><text>%s</text><text>%s</text></binding></visual></toast>";
-	WCHAR* titleW				   = _sr_gui_widen_string(title);
-	WCHAR* messageW				   = _sr_gui_widen_string(message);
+	WCHAR* titleW				   = _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
+	WCHAR* messageW				   = _sr_gui_widen_string(message ? message : "");
 	const size_t templateTotalSize = wcslen(templateBase) + wcslen(titleW) + wcslen(messageW) + 1;
 	WCHAR* templateStr			   = (WCHAR*)SR_GUI_MALLOC(templateTotalSize * sizeof(WCHAR));
 	if(templateStr == NULL) {
@@ -357,7 +357,7 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 	}
 
 	// Set title.
-	WCHAR* titleW = _sr_gui_widen_string(title);
+	WCHAR* titleW = _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
 	res			  = dialog->SetTitle(titleW);
 	SR_GUI_FREE(titleW);
 	if(!SUCCEEDED(res)) {
@@ -430,7 +430,7 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 	}
 
 	// Set title.
-	WCHAR* titleW = _sr_gui_widen_string(title);
+	WCHAR* titleW = _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
 	res			  = dialog->SetTitle(titleW);
 	SR_GUI_FREE(titleW);
 	if(!SUCCEEDED(res)) {
@@ -525,7 +525,7 @@ int sr_gui_ask_load_file(const char* title, const char* startDir, const char* ex
 	}
 
 	// Set title.
-	WCHAR* titleW = _sr_gui_widen_string(title);
+	WCHAR* titleW = _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
 	res			  = dialog->SetTitle(titleW);
 	SR_GUI_FREE(titleW);
 	if(!SUCCEEDED(res)) {
@@ -584,7 +584,7 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 	}
 
 	// Set title.
-	WCHAR* titleW = _sr_gui_widen_string(title);
+	WCHAR* titleW = _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
 	res			  = dialog->SetTitle(titleW);
 	SR_GUI_FREE(titleW);
 	if(!SUCCEEDED(res)) {
@@ -618,8 +618,8 @@ int sr_gui_ask_save_file(const char* title, const char* startDir, const char* ex
 }
 
 int sr_gui_ask_choice(const char* title, const char* message, int level, const char* button0, const char* button1, const char* button2) {
-	WCHAR* titleW	= _sr_gui_widen_string(title);
-	WCHAR* messageW = _sr_gui_widen_string(message);
+	WCHAR* titleW	= _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
+	WCHAR* messageW = _sr_gui_widen_string(message ? message : "");
 	WCHAR* button0W = _sr_gui_widen_string(button0);
 	WCHAR* button1W = _sr_gui_widen_string(button1);
 	WCHAR* button2W = _sr_gui_widen_string(button2);
@@ -727,7 +727,7 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 		return SR_GUI_CANCELLED;
 	}
 	// Message string.
-	WCHAR* messageWTemp		 = _sr_gui_widen_string(message);
+	WCHAR* messageWTemp		 = _sr_gui_widen_string(message ? message : "");
 	const size_t messageSize = strlen(message);
 	WCHAR* messageW			 = (WCHAR*)SR_GUI_MALLOC((messageSize + 2 + 1) * sizeof(WCHAR));
 	if(messageW == NULL) {
@@ -742,8 +742,8 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	messageW[messageSize + 2] = '\0';
 	SR_GUI_FREE(messageWTemp);
 
-	WCHAR* titleW		  = _sr_gui_widen_string(title);
-	WCHAR* dfltValue	  = _sr_gui_widen_string(*result);
+	WCHAR* titleW		  = _sr_gui_widen_string(title ? title : SR_GUI_APP_NAME);
+	WCHAR* dfltValue	  = _sr_gui_widen_string(*result ? *result : "Default value");
 	*result				  = NULL;
 
 	char* content = NULL;
@@ -803,7 +803,9 @@ int sr_gui_ask_color(unsigned char color[3]) {
 }
 
 int sr_gui_open_in_explorer(const char* path){
-
+	if(!path){
+		return SR_GUI_CANCELLED;
+	}
 	WCHAR* pathW = _sr_gui_widen_string(path);
 	_sr_gui_convert_path_separators(pathW);
 
@@ -842,6 +844,9 @@ int sr_gui_open_in_explorer(const char* path){
 }
 
 int sr_gui_open_in_default_app(const char* path){
+	if(!path){
+		return SR_GUI_CANCELLED;
+	}
 	WCHAR* pathW = _sr_gui_widen_string(path);
 	_sr_gui_convert_path_separators(pathW);
 	ShellExecute(NULL, NULL, pathW, NULL, NULL, SW_SHOW);
@@ -850,6 +855,9 @@ int sr_gui_open_in_default_app(const char* path){
 }
 
 int sr_gui_open_in_browser(const char* url){
+	if(!url){
+		return SR_GUI_CANCELLED;
+	}
 	WCHAR* urlW = _sr_gui_widen_string(url);
 	ShellExecute(NULL, NULL, urlW, NULL, NULL, SW_SHOW);
 	SR_GUI_FREE(urlW);
