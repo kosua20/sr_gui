@@ -12,6 +12,8 @@
 
 #define MAX_STR_SIZE 1023
 
+#define RELEASE_CONTENT(ptr) if(ptr){ free(ptr); }
+
 int main(int argc, char** argv) {
 	(void)argc;
 	(void)argv;
@@ -50,13 +52,14 @@ int main(int argc, char** argv) {
 	}
 
 	if(1) {
-		char* content = "A default value";
+		char* content = "Default string";
 		int res		  = sr_gui_ask_string("String field title", "Please input a string here", &content);
 		if(res == SR_GUI_VALIDATED) {
 			printf("String was: %s\n", content);
 		} else {
 			printf("String query canceled.\n");
 		}
+		RELEASE_CONTENT(content);
 	}
 
 	if(1) {
@@ -67,6 +70,7 @@ int main(int argc, char** argv) {
 		} else {
 			printf("File path query canceled.\n");
 		}
+		RELEASE_CONTENT(outPath);
 	}
 
 	if(1) {
@@ -77,6 +81,7 @@ int main(int argc, char** argv) {
 		} else {
 			printf("Directory path query canceled.\n");
 		}
+		RELEASE_CONTENT(outPath);
 	}
 
 	if(1) {
@@ -120,6 +125,7 @@ int main(int argc, char** argv) {
 		} else {
 			printf("Application data path failed.\n");
 		}
+		RELEASE_CONTENT(outPath);
 	}
 	
 	sr_gui_cleanup();

@@ -46,6 +46,10 @@ void sr_gui_show_notification(const char* title, const char* message) {
 }
 
 int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
+
 	*outPath = NULL;
 
 	NSOpenPanel* panel = [NSOpenPanel openPanel];
@@ -74,6 +78,9 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 }
 
 int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount) {
+	if(!outCount || !outPaths) {
+		return SR_GUI_CANCELLED;
+	}
 	*outCount = 0;
 	*outPaths = NULL;
 
@@ -116,6 +123,9 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 
 
 int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
 	*outPath = NULL;
 
 	NSOpenPanel* panel = [NSOpenPanel openPanel];
@@ -154,6 +164,9 @@ int sr_gui_ask_load_file(const char* title, const char* startDir, const char* ex
 }
 
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
 	*outPath = NULL;
 
 	NSSavePanel* panel = [NSSavePanel savePanel];
@@ -231,6 +244,9 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 }
 
 int sr_gui_ask_string(const char* title, const char* message, char** result) {
+	if(!result) {
+		return SR_GUI_CANCELLED;
+	}
 
 	NSAlert* alert		  = [[NSAlert alloc] init];
 	alert.messageText	  = [[NSString alloc] initWithUTF8String:title];
@@ -251,6 +267,8 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	if(rep != SR_GUI_BUTTON0) {
 		[alert release];
 		[field release];
+		// We still nee
+		*result = NULL;
 		return SR_GUI_CANCELLED;
 	}
 	// We don't own the UTF8 string, copy it.
@@ -296,7 +314,9 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 @end
 
 int sr_gui_ask_color(unsigned char color[3]) {
-
+	if(!color) {
+		return SR_GUI_CANCELLED;
+	}
 	CGFloat red		  = ((CGFloat)color[0]) / 255.0f;
 	CGFloat gre		  = ((CGFloat)color[1]) / 255.0f;
 	CGFloat blu		  = ((CGFloat)color[2]) / 255.0f;
@@ -379,6 +399,10 @@ int sr_gui_open_in_browser(const char* url){
 }
 
 int sr_gui_get_app_data_path(char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
+
 	*outPath = NULL;
 	NSURL* pathUrl = [[[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask] firstObject];
 	if(pathUrl == nil){

@@ -107,6 +107,10 @@ void _sr_gui_pump_events(){
 }
 
 int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
+
 	*outPath = NULL;
 	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
@@ -142,6 +146,9 @@ int sr_gui_ask_directory(const char* title, const char* startDir, char** outPath
 }
 
 int sr_gui_ask_load_files(const char* title, const char* startDir, const char* exts, char*** outPaths, int* outCount) {
+	if(!outCount || !outPaths) {
+		return SR_GUI_CANCELLED;
+	}
 	*outCount = 0;
 	*outPaths = NULL;
 	if(!gtk_init_check(NULL, NULL)) {
@@ -202,6 +209,10 @@ int sr_gui_ask_load_files(const char* title, const char* startDir, const char* e
 }
 
 int sr_gui_ask_load_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
+
 	*outPath = NULL;
 	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
@@ -244,6 +255,10 @@ int sr_gui_ask_load_file(const char* title, const char* startDir, const char* ex
 }
 
 int sr_gui_ask_save_file(const char* title, const char* startDir, const char* exts, char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
+
 	*outPath = NULL;
 	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
@@ -369,6 +384,9 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 }
 
 int sr_gui_ask_string(const char* title, const char* message, char** result) {
+	if(!result) {
+		return SR_GUI_CANCELLED;
+	}
 	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
@@ -387,6 +405,7 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	if(res != GTK_RESPONSE_ACCEPT && res != GTK_RESPONSE_OK && res != GTK_RESPONSE_APPLY && res != GTK_RESPONSE_YES) {
 		gtk_widget_destroy(dialog);
 		_sr_gui_pump_events();
+		*result = NULL;
 		return SR_GUI_CANCELLED;
 	}
 
@@ -406,6 +425,9 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 }
 
 int sr_gui_ask_color(unsigned char color[3]) {
+	if(!color) {
+		return SR_GUI_CANCELLED;
+	}
 	if(!gtk_init_check(NULL, NULL)) {
 		return SR_GUI_CANCELLED;
 	}
@@ -482,6 +504,9 @@ int sr_gui_open_in_browser(const char* url){
 }
 
 int sr_gui_get_app_data_path(char** outPath) {
+	if(!outPath) {
+		return SR_GUI_CANCELLED;
+	}
 	*outPath = NULL;
 	// /home/name/.config/ or other, based on $HOME
 	const char* envHome = getenv("HOME");
