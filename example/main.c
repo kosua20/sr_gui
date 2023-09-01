@@ -12,7 +12,22 @@
 
 #define MAX_STR_SIZE 1023
 
-#define RELEASE_CONTENT(ptr) if(ptr){ free(ptr); }
+//#define TEST_NULL_INPUTS
+//#define TEST_NULL_OUTPUTS
+
+#ifdef TEST_NULL_INPUTS
+#define IN(A) (NULL)
+#else
+#define IN(A) (A)
+#endif
+
+#ifdef TEST_NULL_OUTPUTS
+#define OUT(A) (NULL)
+#define RELEASE(ptr) ((void)(ptr))
+#else
+#define OUT(A) (A)
+#define RELEASE(ptr) if(ptr){ free(ptr); }
+#endif
 
 int main(int argc, char** argv) {
 	(void)argc;
@@ -21,20 +36,19 @@ int main(int argc, char** argv) {
 	// Create dummy window for messages etc.
 	createWindow(320, 240);
 
-	// /!\ This example will leak all returned strings. Don't do this in real life.
 	sr_gui_init();
 
 	if(1) {
-		sr_gui_show_notification("Notification title", "This is a notification message which is longer than the title.");
+		sr_gui_show_notification(IN("Notification title"), IN("This is a notification message which is longer than the title."));
 	}
 
 	if(1) {
-		sr_gui_show_message("Message title", "This is a message text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_INFO);
-		sr_gui_show_message("Message title 2", "This is a message text which is longer than the title, 2.", SR_GUI_MESSAGE_LEVEL_ERROR);
+		sr_gui_show_message(IN("Message title"), IN("This is a message text which is longer than the title."), IN(SR_GUI_MESSAGE_LEVEL_INFO));
+		sr_gui_show_message(IN("Message title 2"), IN("This is a message text which is longer than the title, 2."), IN(SR_GUI_MESSAGE_LEVEL_ERROR));
 	}
 
 	if(1) {
-		int res = sr_gui_ask_choice("Question title", "This is a question text which is longer than the title.", SR_GUI_MESSAGE_LEVEL_WARN, "OK", "Cancel", "Nope");
+		int res = sr_gui_ask_choice(IN("Question title"), IN("This is a question text which is longer than the title."), IN(SR_GUI_MESSAGE_LEVEL_WARN), IN("OK"), IN("Cancel"), IN("Nope"));
 		if(res == SR_GUI_CANCELLED) {
 			printf("Choice query canceled\n");
 		} else {
@@ -43,7 +57,7 @@ int main(int argc, char** argv) {
 	}
 
 	if(1) {
-		int res = sr_gui_ask_choice("Question title", "This is a second question text with fewer choices.", SR_GUI_MESSAGE_LEVEL_WARN, "OK", "Cancel", NULL);
+		int res = sr_gui_ask_choice(IN("Question title"), IN("This is a second question text with fewer choices."), IN(SR_GUI_MESSAGE_LEVEL_WARN), IN("OK"), IN("Cancel"), IN(NULL));
 		if(res == SR_GUI_CANCELLED) {
 			printf("Choice query canceled\n");
 		} else {
@@ -53,41 +67,52 @@ int main(int argc, char** argv) {
 
 	if(1) {
 		char* content = "Default string";
-		int res		  = sr_gui_ask_string("String field title", "Please input a string here", &content);
+		int res		  = sr_gui_ask_string(IN("String field title"), IN("Please input a string here"), OUT(&content));
 		if(res == SR_GUI_VALIDATED) {
 			printf("String was: %s\n", content);
 		} else {
 			printf("String query canceled.\n");
 		}
-		RELEASE_CONTENT(content);
+		RELEASE(content);
 	}
 
 	if(1) {
 		char* outPath = NULL;
-		int res		  = sr_gui_ask_save_file("Create file", "~", "jpg,png", &outPath);
+		int res		  = sr_gui_ask_save_file(IN("Create file"), IN("~"), IN("jpg,png"), OUT(&outPath));
 		if(res == SR_GUI_VALIDATED) {
 			printf("File path was: %s\n", outPath);
 		} else {
 			printf("File path query canceled.\n");
 		}
-		RELEASE_CONTENT(outPath);
+		RELEASE(outPath);
 	}
 
 	if(1) {
 		char* outPath = NULL;
-		int res		  = sr_gui_ask_directory("Select directory", "./", &outPath);
+		int res		  = sr_gui_ask_directory(IN("Select directory"), IN("./"), OUT(&outPath));
 		if(res == SR_GUI_VALIDATED) {
 			printf("Directory path was: %s\n", outPath);
 		} else {
 			printf("Directory path query canceled.\n");
 		}
-		RELEASE_CONTENT(outPath);
+		RELEASE(outPath);
+	}
+
+	if(1) {
+		char* outPath = NULL;
+		int res		  = sr_gui_ask_load_file(IN("Select path"), IN("./"), IN("txt"), OUT(&outPath));
+		if(res == SR_GUI_VALIDATED) {
+			printf("File path was: %s\n", outPath);
+		} else {
+			printf("File path query canceled.\n");
+		}
+		RELEASE(outPath);
 	}
 
 	if(1) {
 		char** outPaths = NULL;
 		int outCount	= 0;
-		int res			= sr_gui_ask_load_files("Select paths", "./", NULL, &outPaths, &outCount);
+		int res			= sr_gui_ask_load_files(IN("Select paths"), IN("./"), IN(NULL), OUT(&outPaths), OUT(&outCount));
 		if(res == SR_GUI_VALIDATED) {
 			printf("Multi paths: %d paths obtained\n", outCount);
 			for(int i = 0; i < outCount; ++i) {
@@ -96,6 +121,10 @@ int main(int argc, char** argv) {
 		} else {
 			printf("Multi paths query canceled.\n");
 		}
+		for(int i = 0; i < outCount; ++i){
+			RELEASE(outPaths[i]);
+		}
+		RELEASE(outPaths);
 	}
 
 	if(1) {
@@ -103,7 +132,7 @@ int main(int argc, char** argv) {
 		col[0]	= 0;
 		col[1]	= 255;
 		col[2]	= 128;
-		int res = sr_gui_ask_color(col);
+		int res = sr_gui_ask_color(OUT(col));
 		if(res == SR_GUI_VALIDATED) {
 			printf("Color was: %d,%d,%d\n", (int)col[0], (int)col[1], (int)col[2]);
 		} else {
@@ -112,20 +141,20 @@ int main(int argc, char** argv) {
 	}
 
 	if(1){
-		sr_gui_open_in_explorer("../../../README.md");
-		sr_gui_open_in_browser("https://github.com/kosua20/sr_gui");
-		sr_gui_open_in_default_app("../../../LICENSE.md");
+		sr_gui_open_in_explorer(IN("../../../README.md"));
+		sr_gui_open_in_browser(IN("https://github.com/kosua20/sr_gui"));
+		sr_gui_open_in_default_app(IN("../../../LICENSE.md"));
 	}
 
 	if(1){
 		char* outPath = NULL;
-		int res = sr_gui_get_app_data_path(&outPath);
+		int res = sr_gui_get_app_data_path(OUT(&outPath));
 		if(res == SR_GUI_VALIDATED) {
 			printf("Application data path was: '%s'\n", outPath);
 		} else {
 			printf("Application data path failed.\n");
 		}
-		RELEASE_CONTENT(outPath);
+		RELEASE(outPath);
 	}
 	
 	sr_gui_cleanup();
