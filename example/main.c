@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
 	}
 
 	if(1) {
-		char* content = "Default string";
+		char* content = "A default string";
 		int res		  = sr_gui_ask_string(IN("String field title"), IN("Please input a string here"), OUT(&content));
 		if(res == SR_GUI_VALIDATED) {
 			printf("String was: %s\n", content);

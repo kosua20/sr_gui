@@ -535,7 +535,27 @@ int sr_gui_get_app_data_path(char** outPath) {
 		return SR_GUI_CANCELLED;
 	}
 	*outPath = NULL;
-	// /home/name/.config/ or other, based on $HOME
+	// /home/name/.config/ or other, based on $XDG_CONFIG_HOME or $HOME
+	const char* envConfig = getenv("XDG_CONFIG_HOME");
+	if(envConfig && (strlen(envConfig) != 0)) {
+		const unsigned int strSize = strlen(envConfig);
+		const int slashSize = ((strSize != 0) && (envConfig[strSize - 1] != '/')) ? 1 : 0;
+		const unsigned int finalSize = strSize + slashSize + 1;
+		*outPath = (char*)SR_GUI_MALLOC(finalSize * sizeof(char));
+		if(*outPath == NULL) {
+			return SR_GUI_CANCELLED;
+		}
+		// Copy config path
+		SR_GUI_MEMCPY(*outPath, envConfig, sizeof(char) * strSize);
+		unsigned int nextIndex = strSize;
+		// Append slash if needed
+		if(slashSize != 0){
+			(*outPath)[nextIndex++] = '/';
+		}
+		(*outPath)[nextIndex] = '\0';
+		return SR_GUI_VALIDATED;
+	}
+	// Fallback to HOME/.config
 	const char* envHome = getenv("HOME");
 	if(!envHome) {
 		// If nothing found, return the working directory.
