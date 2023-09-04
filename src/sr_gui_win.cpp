@@ -728,7 +728,7 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	}
 	// Message string.
 	WCHAR* messageWTemp		 = _sr_gui_widen_string(message ? message : "");
-	const size_t messageSize = strlen(message);
+	const size_t messageSize = wcslen(messageWTemp);
 	WCHAR* messageW			 = (WCHAR*)SR_GUI_MALLOC((messageSize + 2 + 1) * sizeof(WCHAR));
 	if(messageW == NULL) {
 		SR_GUI_FREE(messageWTemp);
