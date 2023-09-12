@@ -60,21 +60,21 @@ jobs:
         working-directory: ${{github.workspace}}/build
         shell: bash
         run: |
-          make sr_gui
+          make Example
       
       - name: Build using MSVC
         if: ${{matrix.premake-opts == 'vs2019'}}
         working-directory: ${{github.workspace}}/build
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe" .\sr_gui.sln -t:sr_gui\sr_gui -nologo -v:minimal -p:Configuration=Release -p:Platform=x64
+          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe" .\sr_gui.sln -t:sr_gui\Example -nologo -v:minimal -p:Configuration=Release -p:Platform=x64
           
       - name: Build using Xcode
         if: ${{matrix.premake-opts == 'xcode4'}}
         working-directory: ${{github.workspace}}/build
         shell: bash
         run: |
-          xcodebuild -workspace sr_gui.xcworkspace -scheme sr_gui -arch x86_64 -arch arm64 only_active_arch=no -configuration Release
+          xcodebuild -workspace sr_gui.xcworkspace -scheme Example -arch x86_64 -arch arm64 only_active_arch=no -configuration Release
 
 
 
