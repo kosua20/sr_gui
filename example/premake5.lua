@@ -11,6 +11,10 @@ function CommonExampleSetup()
 	kind("ConsoleApp")
 	systemversion("latest")
 
+	filter("system:macosx")
+		systemversion("10.12:latest")
+	filter({})
+
 	-- Build flags
 	filter("toolset:not msc*")
 		buildoptions({ "-Wall", "-Wextra" })
@@ -19,7 +23,7 @@ function CommonExampleSetup()
 	filter({})
 
 	-- Common include dirs
-	sysincludedirs({ "../include/", "common/glfw/include/", "common/" })
+	externalincludedirs({ "../include/", "common/glfw/include/", "common/" })
 
 	files({"common/common.c", "common/common.h"})
 	links({"glfw3"})

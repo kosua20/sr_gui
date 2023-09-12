@@ -10,7 +10,12 @@ workspace("sr_gui")
 	location("build")
 	targetdir ("build/%{prj.name}/%{cfg.longname}")
 	debugdir ("build/%{prj.name}/%{cfg.longname}")
-	architecture("x64")
+	architecture("x86_64")
+
+	systemversion("latest")
+	filter("system:macosx")
+		systemversion("10.12:latest")
+	filter({})
 
 	-- Configuration specific settings.
 	filter("configurations:Release")
@@ -26,8 +31,6 @@ workspace("sr_gui")
 
 project("sr_gui")
 	kind("StaticLib")
-	systemversion("latest")
-	
 	filter("toolset:not msc*")
 		buildoptions({ "-Wall", "-Wextra" })
 	filter("toolset:msc*")
@@ -57,7 +60,6 @@ project("sr_gui")
 
 project("sr_gui_cli")
 	kind("StaticLib")
-	systemversion("latest")
 	language("C")
 	
 	filter("toolset:not msc*")
