@@ -28,9 +28,12 @@ using namespace Microsoft::WRL;
 using namespace Microsoft::WRL::Wrappers;
 using namespace ABI::Windows::Data::Xml::Dom;
 
+static UINT _sr_gui_colorOK_msg = 0;
+
 void sr_gui_init() {
 	HRESULT res = CoInitializeEx(NULL, ::COINIT_APARTMENTTHREADED | ::COINIT_DISABLE_OLE1DDE);
 	(void)res;
+	_sr_gui_colorOK_msg = RegisterWindowMessage(COLOROKSTRING);
 }
 
 void sr_gui_cleanup() {
@@ -774,22 +777,110 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	return (SUCCEEDED(res) && (button == IDOK)) ? SR_GUI_VALIDATED : SR_GUI_CANCELLED;
 }
 
-int sr_gui_ask_color(unsigned char color[3]) {
+#define _SR_GUI_COLOR_FIELD (4687913)
+#define _SR_GUI_COLOR_LABEL (_SR_GUI_COLOR_FIELD + 1)
+
+struct _sr_gui_color_callback_data {
+	HWND label;
+	HWND field;
+	HFONT font;
+	WCHAR* defaultString;
+	unsigned char alpha;
+};
+
+UINT_PTR _sr_gui_color_callback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+
+	
+	if(msg == WM_INITDIALOG) {
+
+		CHOOSECOLOR* chooseColor = (CHOOSECOLOR*)(lParam);
+		if(!chooseColor)
+			return 0;
+
+		_sr_gui_color_callback_data* data = (_sr_gui_color_callback_data*)(chooseColor->lCustData);
+		if(!data)
+			return 0;
+
+		int w = 366;
+		int h = 186;
+		RECT winSize;
+		if(GetWindowRect(hwnd, &winSize)) {
+			w = abs(winSize.right - winSize.left);
+			h = abs(winSize.bottom - winSize.top);
+		}
+		int wNew = w + 120;
+		MoveWindow(hwnd, winSize.left, winSize.top, wNew, h, TRUE);
+	
+		data->label = CreateWindowEx(WS_EX_NOPARENTNOTIFY | 0x800, L"STATIC", L"Alpha :", 
+			SS_RIGHT | WS_GROUP | WS_CHILD | WS_VISIBLE, 648, 315, 65, 23, 
+			hwnd, (HMENU)_SR_GUI_COLOR_LABEL, NULL, NULL);
+		data->field = CreateWindowEx(WS_EX_NOPARENTNOTIFY | 0x800 | WS_EX_CLIENTEDGE, L"EDIT", NULL, 
+			WS_TABSTOP | WS_GROUP | WS_CHILD | WS_VISIBLE | ES_NUMBER, 648 + 65 + 4, 315 - 5, 41, 30, 
+			hwnd, (HMENU)_SR_GUI_COLOR_FIELD, NULL, NULL);
+		
+		HDC context	   = GetDC(hwnd);
+		INT fontHeight = MulDiv(10, GetDeviceCaps(context, LOGPIXELSY), 72);
+		data->font	   = CreateFont(fontHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, TEXT("MS Shell Dlg"));
+		SendMessage(data->field, WM_SETFONT, (WPARAM)(data->font), TRUE);
+		SendMessage(data->label, WM_SETFONT, (WPARAM)(data->font), TRUE);
+		SendMessage(data->field, WM_SETTEXT, NULL, (LPARAM)(data->defaultString));
+	
+	} else if(msg == _sr_gui_colorOK_msg) {
+
+		CHOOSECOLOR* chooseColor = (CHOOSECOLOR*)(lParam);
+		if(!chooseColor)
+			return 0;
+
+		_sr_gui_color_callback_data* data = (_sr_gui_color_callback_data*)(chooseColor->lCustData);
+		if(!data)
+			return 0;
+
+		BOOL success = FALSE;
+		UINT val	 = GetDlgItemInt(hwnd, _SR_GUI_COLOR_FIELD, &success, FALSE);
+		if(success) {
+			data->alpha = (unsigned char)(val < 0 ? 0 : (val > 255 ? 255 : val));
+		}
+	}
+	return 0;
+}
+
+int _sr_gui_ask_color(unsigned char color[4], bool askAlpha) {
 	if(!color) {
 		return SR_GUI_CANCELLED;
 	}
 	DWORD colorD = RGB(color[0], color[1], color[2]);
+	_sr_gui_color_callback_data callData{};
+	if(askAlpha) {
+		callData.alpha				 = color[3];
+		const std::string defaultStr = std::to_string(color[3]);
+		callData.defaultString		 = _sr_gui_widen_string(defaultStr.c_str());
+	}
+	
 	// Preserve palette of favorite colors between calls.
-	static COLORREF acrCustClr[16];
+	static COLORREF acrCustClr[16] = {
+		0x00000000,0x00FF0000,0x0000FF00,0x000000FF,
+		0x00FFFF00,0x00FF00FF,0x0000FFFF,0x00FFFFFF,
+		0x00FF7700,0x00FF0077,0x0077FF00,0x0000FF77,
+		0x007700FF,0x000077FF,0x00777777,0x00000000,
+	};
 	CHOOSECOLOR colorSettings;
 	memset(&colorSettings, 0, sizeof(CHOOSECOLOR));
 	colorSettings.lStructSize  = sizeof(CHOOSECOLOR);
 	colorSettings.hwndOwner	   = NULL;
 	colorSettings.rgbResult	   = colorD;
 	colorSettings.lpCustColors = (LPDWORD)acrCustClr;
-	colorSettings.Flags		   = CC_FULLOPEN | CC_RGBINIT | CC_ANYCOLOR;
+	colorSettings.Flags		   = CC_FULLOPEN | CC_RGBINIT | CC_ANYCOLOR | (askAlpha ? CC_ENABLEHOOK : 0);
+	colorSettings.lpfnHook	   = askAlpha ? &_sr_gui_color_callback : NULL;
+	colorSettings.lCustData	   = askAlpha ? (LPARAM)(&callData) : 0;
 
 	BOOL res = ChooseColor(&colorSettings);
+
+	if(askAlpha) {
+		SR_GUI_FREE(callData.defaultString);
+		DeleteObject(callData.font);
+		DeleteObject(callData.field);
+		DeleteObject(callData.label);
+	}
 
 	if(res != TRUE) {
 		return SR_GUI_CANCELLED;
@@ -798,8 +889,27 @@ int sr_gui_ask_color(unsigned char color[3]) {
 	color[0] = GetRValue(colorSettings.rgbResult);
 	color[1] = GetGValue(colorSettings.rgbResult);
 	color[2] = GetBValue(colorSettings.rgbResult);
-
+	color[3] = askAlpha ? callData.alpha : 255;
 	return SR_GUI_VALIDATED;
+}
+
+int sr_gui_ask_color_rgba(unsigned char color[4]) {
+	return _sr_gui_ask_color(color, true);
+}
+
+int sr_gui_ask_color_rgb(unsigned char color[3]) {
+	if(!color) {
+		return SR_GUI_CANCELLED;
+	}
+
+	unsigned char colorTmp[4] = { color[0], color[1], color[2], 255 };
+	int res					  = _sr_gui_ask_color(colorTmp, false);
+	if(res == SR_GUI_VALIDATED) {
+		color[0] = colorTmp[0];
+		color[1] = colorTmp[1];
+		color[2] = colorTmp[2];
+	}
+	return res;
 }
 
 int sr_gui_open_in_explorer(const char* path){
