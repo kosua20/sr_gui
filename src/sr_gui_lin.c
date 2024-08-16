@@ -442,7 +442,7 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_color(unsigned char color[3]) {
+int _sr_gui_ask_color(unsigned char color[4], int askAlpha) {
 	if(!color) {
 		return SR_GUI_CANCELLED;
 	}
@@ -454,12 +454,12 @@ int sr_gui_ask_color(unsigned char color[3]) {
 	colorGtk.red   = ((float)color[0]) / 255.0f;
 	colorGtk.green = ((float)color[1]) / 255.0f;
 	colorGtk.blue  = ((float)color[2]) / 255.0f;
-	colorGtk.alpha = 1.0f;
+	colorGtk.alpha = askAlpha ? (((float)color[3]) / 255.0f) : 1.0f;
 
 	// Set default color.
 	GtkWidget* picker = gtk_color_chooser_dialog_new(NULL, NULL);
 	gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(picker), &colorGtk);
-	gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(picker), 0);
+	gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(picker), askAlpha ? 1 : 0);
 
 	int res = gtk_dialog_run(GTK_DIALOG(picker));
 	// Codes are different for different validation buttons.
@@ -475,9 +475,28 @@ int sr_gui_ask_color(unsigned char color[3]) {
 	color[0] = (unsigned char)(fmin(fmax(255.0f * colorGtk.red, 0.0f), 255.0f));
 	color[1] = (unsigned char)(fmin(fmax(255.0f * colorGtk.green, 0.0f), 255.0f));
 	color[2] = (unsigned char)(fmin(fmax(255.0f * colorGtk.blue, 0.0f), 255.0f));
+	color[3] = askAlpha ? (unsigned char)(fmin(fmax(255.0f * colorGtk.alpha, 0.0f), 255.0f)) : 255u;
 	gtk_widget_destroy(picker);
 	_sr_gui_pump_events();
 	return SR_GUI_VALIDATED;
+}
+
+int sr_gui_ask_color_rgba(unsigned char color[4]) {
+	return _sr_gui_ask_color(color, 1);
+}
+
+int sr_gui_ask_color_rgb(unsigned char color[3]) {
+	if(!color) {
+		return SR_GUI_CANCELLED;
+	}
+	unsigned char colorTmp[4] = {color[0], color[1], color[2], 255};
+	int res					  = _sr_gui_ask_color(colorTmp, 0);
+	if(res == SR_GUI_VALIDATED) {
+		color[0] = colorTmp[0];
+		color[1] = colorTmp[1];
+		color[2] = colorTmp[2];
+	}
+	return res;
 }
 
 int sr_gui_open_in_explorer(const char* path){
