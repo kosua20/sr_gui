@@ -128,11 +128,19 @@ int main(int argc, char** argv) {
 	}
 
 	if(1) {
-		unsigned char col[3];
+		unsigned char col[4];
 		col[0]	= 0;
 		col[1]	= 255;
 		col[2]	= 128;
-		int res = sr_gui_ask_color(OUT(col));
+		col[3]	= 192;
+		int res = sr_gui_ask_color_rgba(OUT(col));
+		if(res == SR_GUI_VALIDATED) {
+			printf("Color was: %d,%d,%d,%d\n", (int)col[0], (int)col[1], (int)col[2], (int)col[3]);
+		} else {
+			printf("Color query canceled.\n");
+		}
+
+		res = sr_gui_ask_color_rgb(OUT(col));
 		if(res == SR_GUI_VALIDATED) {
 			printf("Color was: %d,%d,%d\n", (int)col[0], (int)col[1], (int)col[2]);
 		} else {

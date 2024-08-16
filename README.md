@@ -60,9 +60,11 @@ Display a modal dialog with the given title and message, along with a text field
 
 ### Color query
 
-    int sr_gui_ask_color(unsigned char color[3]);
+    int sr_gui_ask_color_rgba(unsigned char color[4]);
 
-Display a color picker initialized with the values passed as input. When returning the color parameter will contain the selected RGB color with values in [0,255]. Returns `SR_GUI_VALIDATED` if the user validated, or `SR_GUI_CANCELLED` if the dialog was cancelled.
+    int sr_gui_ask_color_rgb(unsigned char color[3]);
+
+Display a color picker initialized with the values passed as input, with optionally an alpha component. When returning the color parameter will contain the selected RGB(A) color with values in [0,255]. Returns `SR_GUI_VALIDATED` if the user validated, or `SR_GUI_CANCELLED` if the dialog was cancelled.
 
 ### File and directory queries
 
