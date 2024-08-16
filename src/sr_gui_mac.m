@@ -322,17 +322,17 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 
 @end
 
-int sr_gui_ask_color(unsigned char color[3]) {
+int _sr_gui_ask_color(unsigned char color[4], BOOL askAlpha) {
 	if(!color) {
 		return SR_GUI_CANCELLED;
 	}
 	CGFloat red		  = ((CGFloat)color[0]) / 255.0f;
 	CGFloat gre		  = ((CGFloat)color[1]) / 255.0f;
 	CGFloat blu		  = ((CGFloat)color[2]) / 255.0f;
-	CGFloat alp		  = 1.0f;
+	CGFloat alp		  = askAlpha ? (((CGFloat)color[3]) / 255.0f) : 1.f;
 	NSColor* inputCol = [NSColor colorWithRed:red green:gre blue:blu alpha:alp];
 
-	SRColorPanel* panel = [[SRColorPanel alloc] initWithColor:inputCol shouldAskAlpha:NO];
+	SRColorPanel* panel = [[SRColorPanel alloc] initWithColor:inputCol shouldAskAlpha:askAlpha];
 	int res				= [panel run];
 	if(res != SR_GUI_VALIDATED) {
 		[panel release];
@@ -345,10 +345,29 @@ int sr_gui_ask_color(unsigned char color[3]) {
 	color[0] = (unsigned char)(fmax(fmin((float)red * 255.0f, 255.0f), 0.0f));
 	color[1] = (unsigned char)(fmax(fmin((float)gre * 255.0f, 255.0f), 0.0f));
 	color[2] = (unsigned char)(fmax(fmin((float)blu * 255.0f, 255.0f), 0.0f));
+	color[3] = askAlpha ? (unsigned char)(fmax(fmin((float)alp * 255.0f, 255.0f), 0.0f)) : 255u;
 
 	[panel release];
 	[inputCol release];
 	return SR_GUI_VALIDATED;
+}
+
+int sr_gui_ask_color_rgba(unsigned char color[4]) {
+	return _sr_gui_ask_color(color, YES);
+}
+
+int sr_gui_ask_color_rgb(unsigned char color[3]) {
+	if(!color) {
+		return SR_GUI_CANCELLED;
+	}
+	unsigned char colorTmp[4] = { color[0], color[1], color[2], 255};
+	int res = _sr_gui_ask_color(colorTmp, NO);
+	if(res == SR_GUI_VALIDATED){
+		color[0] = colorTmp[0];
+		color[1] = colorTmp[1];
+		color[2] = colorTmp[2];
+	}
+	return res;
 }
 
 int sr_gui_open_in_explorer(const char* path){
