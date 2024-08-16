@@ -35,7 +35,9 @@ int sr_gui_ask_choice(const char* title, const char* message, int level, const c
 
 int sr_gui_ask_string(const char* title, const char* message, char** result);
 
-int sr_gui_ask_color(unsigned char color[3]);
+int sr_gui_ask_color_rgb(unsigned char color[3]);
+
+int sr_gui_ask_color_rgba(unsigned char color[4]);
 
 int sr_gui_open_in_explorer(const char* path);
 

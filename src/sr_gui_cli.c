@@ -291,7 +291,34 @@ int sr_gui_ask_string(const char* title, const char* message, char** result) {
 	return SR_GUI_VALIDATED;
 }
 
-int sr_gui_ask_color(unsigned char color[3]) {
+int sr_gui_ask_color_rgba(unsigned char color[4]) {
+	if(!color) {
+		return SR_GUI_CANCELLED;
+	}
+	fprintf(stdout, "--- Color selection\n");
+	fprintf(stdout, "Current RGBA color is: %d %d %d %d\n", (int)color[0], (int)color[1], (int)color[2], (int)color[3]);
+	fprintf(stdout, "Type the four values separated by space, and press enter to validate, or submit an empty line to cancel.\n");
+	char buffer[64];
+	const int size = _sr_gui_query_line_from_cin(buffer, 64);
+	if(size == 0) {
+		return SR_GUI_CANCELLED;
+	}
+	int rgb[4];
+#ifdef _WIN32
+	int res = sscanf_s(buffer, "%d %d %d %d", &rgb[0], &rgb[1], &rgb[2], &rgb[3]);
+#else
+	int res = sscanf(buffer, "%d %d %d %d", &rgb[0], &rgb[1], &rgb[2], &rgb[3]);
+#endif
+	if(res < 4 || res == EOF) {
+		return SR_GUI_CANCELLED;
+	}
+	for(int i = 0; i < 4; ++i) {
+		color[i] = (unsigned char)(fmin(fmax(rgb[i], 0), 255));
+	}
+	return SR_GUI_VALIDATED;
+}
+
+int sr_gui_ask_color_rgb(unsigned char color[3]) {
 	if(!color){
 		return SR_GUI_CANCELLED;
 	}
